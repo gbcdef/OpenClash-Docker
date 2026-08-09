@@ -11,15 +11,8 @@ docker compose up -d
 
 特殊文件名 `openclash.ipk` 保留给上游 OpenClash 安装包：如果构建服务器无法访问
 GitHub，可手动下载仓库当前固定的版本并以该名称放到这里，构建过程会优先使用它。
-无论文件来自 GitHub 还是本目录，构建都会验证 `OPENCLASH_IPK_SHA256`；自定义文件时
-必须同时传入它的真实摘要，例如：
-
-```sh
-docker build \
-  --build-arg OPENCLASH_RELEASE=0.47.133 \
-  --build-arg OPENCLASH_IPK_SHA256=<64位SHA-256> \
-  .
-```
+该文件应与 `Dockerfile` 中的 `OPENCLASH_RELEASE` 版本一致；更新版本时只需修改该处，
+不需要额外维护 SHA-256 构建参数。
 
 如果服务商提供的是安装命令而不是 IPK，可创建 `install.sh`。该脚本在 OpenWrt
 镜像构建阶段执行。不要把账号、密码、订阅 URL 或令牌写入脚本并提交到 Git；敏感

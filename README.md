@@ -8,8 +8,7 @@
 - 架构：amd64 / x86_64
 - 配置方式：`docker-compose.yml` + `.env` + Compose secret
 - 数据持久化：宿主机 `./data` 目录
-- 内置 OpenClash：`v0.47.133`
-- 上游 IPK SHA-256：`c2490630043ea7e3db91a8f0d079088bc39c6aab4dc283d292f302064f891b90`
+- 内置 OpenClash：版本由 `Dockerfile` 中的 `OPENCLASH_RELEASE` 固定
 
 > [!WARNING]
 > 容器使用 `host` 网络和 `privileged` 权限，会操作宿主机的 TUN、路由与防火墙。请只在可信 Linux 主机上运行，不要把 LuCI、控制器、DNS 或无认证代理端口暴露到公网。
@@ -159,20 +158,20 @@ docker compose up -d
 
 ## 上游版本与构建验证
 
-默认构建固定使用 OpenClash `v0.47.133`，不会在每次构建时自动漂移到 `latest`。构建脚本精确下载：
+默认构建使用 `Dockerfile` 中 `OPENCLASH_RELEASE` 固定的版本，不会在每次构建时自动漂移到 `latest`。构建脚本按以下格式下载对应 IPK：
 
 ```text
-https://github.com/vernesong/OpenClash/releases/download/v0.47.133/luci-app-openclash_0.47.133_all.ipk
+https://github.com/vernesong/OpenClash/releases/download/v<版本号>/luci-app-openclash_<版本号>_all.ipk
 ```
 
-下载后必须匹配仓库中固定的 SHA-256，否则构建立刻失败。CI 还会真正启动刚构建的镜像，等待基础容器健康，并确认：
+CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 - LuCI/OpenWrt 基础服务可以响应；
 - `luci-app-openclash` 已安装且版本正确；
 - `/etc/init.d/openclash` 存在；
 - OpenClash 初始保持关闭，且独立运行状态检查不会误报成功。
 
-升级 OpenClash 时，需要同时更新 `Dockerfile` 和 GitHub Actions 中的版本与 SHA-256。摘要必须取自对应 GitHub Release asset 的 `digest` 字段，不能只修改版本或绕过校验。也可以离线提供 `vendor/openclash.ipk`，但它仍必须与构建参数传入的 SHA-256 一致。
+升级 OpenClash 时，只需修改 `Dockerfile` 中 `OPENCLASH_RELEASE` 的默认值。GitHub Actions 会自动读取该值用于镜像标签和版本测试，不需要同步修改工作流。也可以离线提供 `vendor/openclash.ipk`；CI 仍会检查最终安装的软件包版本是否与 `OPENCLASH_RELEASE` 一致。
 
 ## OpenClash 配置
 
@@ -194,33 +193,30 @@ https://github.com/vernesong/OpenClash/releases/download/v0.47.133/luci-app-open
 
 账号、订阅 URL 和节点配置只应在 LuCI 中填写。它们保存在 `${DATA_DIR}/openclash` 目录中，不应写入 `.env` 或 Compose 文件。
 
+镜像构建时已经安装 OpenClash，并由 CI 验证 oixCloud 登录页面及专用内核下载入口存在。镜像不会预下载随 `Pre-Alpha` 发布滚动更新的 oixCloud 内核，也不会在缺少 token、订阅和有效配置时强制启动 OpenClash：登录成功后由 OpenClash 上游流程下载匹配架构的内核、导入订阅并重启服务，可以避免在本项目中重复维护内核版本、下载地址和用户凭据。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
+
 ### 在 oixCloud 订阅上叠加本地配置
 
-仓库提供了一个可选、按顺序执行的 [hooks 目录](hooks/README.md)，通过 OpenClash 原生的 `openclash_custom_overwrite.sh` 在每次配置生成后叠加本地能力，不修改下载的 oixCloud 订阅文件：
+仓库提供了一个默认启用、按顺序执行的 [hooks 目录](hooks/README.md)，通过 OpenClash 原生的 `openclash_custom_overwrite.sh` 在每次配置生成后叠加本地能力，不修改下载的 oixCloud 订阅文件：
 
 ```text
 10-custom-hosts.sh         合并自定义 hosts
 15-custom-dns.sh           管理 fake-IP 过滤条目
+18-custom-runtime.sh       管理 sniffer 与 TUN DNS 劫持
 20-custom-proxy-groups.sh  创建节点组并挂入已有 Proxy 选择器
 30-custom-rules.sh         在 MATCH/FINAL 前插入自定义规则
 custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 ```
 
-启用需要先复制示例配置和 Compose override：
+默认配置已经构建进镜像，正常启动即可启用：
 
 ```sh
-cp hooks/config/hosts.example.yaml hooks/config/hosts.yaml
-cp hooks/config/dns.example.yaml hooks/config/dns.yaml
-cp hooks/config/firewall-bypass.example.yaml hooks/config/firewall-bypass.yaml
-cp hooks/config/proxy-groups.example.yaml hooks/config/proxy-groups.yaml
-cp hooks/config/rules.example.yaml hooks/config/rules.yaml
-cp docker-compose.override.example.yml docker-compose.override.yml
 docker compose up -d
 ```
 
-随后编辑需要启用的非示例 YAML，删除文档占位值并写入自己的配置，再更新订阅或重启 OpenClash。活动配置文件已被 Git 和 Docker build context 忽略。仓库示例只使用 `example.test`、`192.0.2.0/24` 等保留的文档值，不包含个人域名、用户名、订阅 URL 或公网地址。
+默认 YAML 已包含 21 个地区自动组、透明嗅探、TUN DNS 劫持、Tailscale MagicDNS fake-IP 例外、Vodafone ePDG hosts 和 RFC1918 直连规则。不需要某项时可以注释或删除相应条目；整体关闭时在 `.env` 设置 `ENABLE_OPENCLASH_HOOKS=0`。默认配置受 Git 跟踪且会构建进镜像，不应加入用户名、订阅 URL 或令牌。
 
-hook 执行程序已经内置在 GitHub 镜像中，部署机只需保留私有 YAML 和 Compose override。若没有克隆仓库，可单独下载公开的配置示例和 override；不要把改名后的活动 YAML 提交到 Git。
+若希望使用已发布镜像并在宿主机直接修改这些 YAML，可将 `docker-compose.override.example.yml` 复制为 `docker-compose.override.yml`，把本地 `hooks/config` 覆盖挂载进容器；否则直接使用镜像内置版本。
 
 宿主机使用 Mixed 代理的示例：
 

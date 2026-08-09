@@ -1,6 +1,0 @@
-# Copy this file to hosts.yaml to enable the hosts hook.
-# example.test and 192.0.2.0/24 are reserved for documentation.
-version: 1
-hosts:
-  api.example.test: 192.0.2.10
-  gateway.example.test: 192.0.2.20

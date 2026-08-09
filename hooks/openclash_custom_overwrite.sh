@@ -5,6 +5,7 @@ CONFIG_FILE="${1:-}"
 HOOK_ROOT="${OPENCLASH_HOOK_ROOT:-/usr/local/share/openclash-hooks}"
 HOOK_DIR="${HOOK_ROOT}/hooks.d"
 PREVIOUS_HOOK='/etc/openclash/custom/openclash_custom_overwrite.before-docker-hooks.sh'
+HOOKS_ENABLED="${ENABLE_OPENCLASH_HOOKS:-1}"
 
 if [ -z "${CONFIG_FILE}" ]; then
   exit 0
@@ -13,6 +14,13 @@ fi
 if [ ! -f "${CONFIG_FILE}" ]; then
   echo "[openclash-hooks] generated config does not exist: ${CONFIG_FILE}" >&2
   exit 1
+fi
+
+if [ "${HOOKS_ENABLED}" != "1" ]; then
+  if [ -f "${PREVIOUS_HOOK}" ]; then
+    /bin/sh "${PREVIOUS_HOOK}" "${CONFIG_FILE}"
+  fi
+  exit 0
 fi
 
 ROLLBACK_FILE="${CONFIG_FILE}.openclash-hooks.$$"

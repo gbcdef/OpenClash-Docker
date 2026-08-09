@@ -2,7 +2,7 @@
 set -eu
 
 CONFIG_FILE="${1:-}"
-HOOK_CONFIG_DIR="${OPENCLASH_HOOK_CONFIG_DIR:-/etc/openclash-hooks/config}"
+HOOK_CONFIG_DIR="${OPENCLASH_HOOK_CONFIG_DIR:-/usr/local/share/openclash-hooks/config}"
 DEFINITION_FILE="${HOOK_CONFIG_DIR}/hosts.yaml"
 
 [ -n "${CONFIG_FILE}" ] || exit 0
