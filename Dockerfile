@@ -2,13 +2,12 @@ ARG OPENWRT_IMAGE=openwrt/rootfs:x86_64-24.10.8
 FROM ${OPENWRT_IMAGE}
 
 ARG OPENCLASH_RELEASE=0.47.133
-ARG OPENCLASH_IPK_SHA256=c2490630043ea7e3db91a8f0d079088bc39c6aab4dc283d292f302064f891b90
 
 COPY docker/prepare-image.sh /usr/local/sbin/prepare-image
 COPY vendor/ /tmp/vendor/
 
 RUN chmod 0755 /usr/local/sbin/prepare-image \
-    && /usr/local/sbin/prepare-image "${OPENCLASH_RELEASE}" "${OPENCLASH_IPK_SHA256}" \
+    && /usr/local/sbin/prepare-image "${OPENCLASH_RELEASE}" \
     && mkdir -p /usr/local/share/openclash-defaults \
     && mv /etc/config /usr/local/share/openclash-defaults/config \
     && mv /etc/openclash /usr/local/share/openclash-defaults/openclash \

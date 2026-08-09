@@ -1,0 +1,5 @@
+# Keep Tailscale MagicDNS names on real IPs.
+version: 1
+fake-ip-filter:
+  prepend:
+    - "+.ts.net"

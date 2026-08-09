@@ -1,14 +1,16 @@
 #!/bin/sh
 set -eu
 
-HOOK_CONFIG_DIR="${OPENCLASH_HOOK_CONFIG_DIR:-/etc/openclash-hooks/config}"
+HOOK_CONFIG_DIR="${OPENCLASH_HOOK_CONFIG_DIR:-/usr/local/share/openclash-hooks/config}"
 DEFINITION_FILE="${HOOK_CONFIG_DIR}/firewall-bypass.yaml"
 PREVIOUS_HOOK='/etc/openclash/custom/openclash_custom_firewall_rules.before-docker-hooks.sh'
+HOOKS_ENABLED="${ENABLE_OPENCLASH_HOOKS:-1}"
 
 if [ -f "${PREVIOUS_HOOK}" ]; then
   /bin/sh "${PREVIOUS_HOOK}"
 fi
 
+[ "${HOOKS_ENABLED}" = "1" ] || exit 0
 [ -f "${DEFINITION_FILE}" ] || exit 0
 
 LAN_INTERFACE="$(uci -q get openclash.config.lan_interface_name || true)"

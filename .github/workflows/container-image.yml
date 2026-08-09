@@ -14,8 +14,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  OPENCLASH_RELEASE: 0.47.133
-  OPENCLASH_IPK_SHA256: c2490630043ea7e3db91a8f0d079088bc39c6aab4dc283d292f302064f891b90
   SMOKE_IMAGE: openclash-docker:smoke
 
 jobs:
@@ -30,6 +28,12 @@ jobs:
         shell: bash
         run: |
           image_name="${GITHUB_REPOSITORY,,}"
+          openclash_release="$(sed -n 's/^ARG OPENCLASH_RELEASE=//p' Dockerfile)"
+          if [[ -z "$openclash_release" || "$openclash_release" == *$'\n'* ]]; then
+            echo "Dockerfile must define exactly one OPENCLASH_RELEASE default" >&2
+            exit 1
+          fi
+          openclash_release="${openclash_release#v}"
           revision_tag="sha-${GITHUB_SHA:0:12}"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             primary_tag="${GITHUB_REF#refs/tags/}"
@@ -41,6 +45,7 @@ jobs:
             primary_tag="branch-${safe_branch}"
           fi
           echo "name=$REGISTRY/$image_name" >> "$GITHUB_OUTPUT"
+          echo "openclash_release=$openclash_release" >> "$GITHUB_OUTPUT"
           echo "primary_tag=$primary_tag" >> "$GITHUB_OUTPUT"
           echo "revision_tag=$revision_tag" >> "$GITHUB_OUTPUT"
 
@@ -59,11 +64,9 @@ jobs:
         run: |
           docker build \
             --build-arg OPENWRT_IMAGE=openwrt/rootfs:x86_64-24.10.8 \
-            --build-arg OPENCLASH_RELEASE="$OPENCLASH_RELEASE" \
-            --build-arg OPENCLASH_IPK_SHA256="$OPENCLASH_IPK_SHA256" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.version=$OPENCLASH_RELEASE" \
+            --label "org.opencontainers.image.version=${{ steps.image.outputs.openclash_release }}" \
             --tag "$SMOKE_IMAGE" \
             --tag "${{ steps.image.outputs.name }}:${{ steps.image.outputs.primary_tag }}" \
             --tag "${{ steps.image.outputs.name }}:${{ steps.image.outputs.revision_tag }}" \
@@ -71,12 +74,13 @@ jobs:
 
       - name: Smoke test container
         shell: bash
+        env:
+          OPENCLASH_RELEASE: ${{ steps.image.outputs.openclash_release }}
         run: |
           docker run --detach \
             --name openclash-smoke \
             --privileged \
             --env HOST_NETWORK=0 \
-            --env ENABLE_OPENCLASH_HOOKS=1 \
             --env ROOT_PASSWORD_FILE=/run/root_password \
             --volume "$GITHUB_WORKSPACE/secrets/root_password.example:/run/root_password:ro" \
             --health-cmd /usr/local/sbin/container-healthcheck \
@@ -106,6 +110,12 @@ jobs:
           docker exec openclash-smoke test -x /etc/init.d/openclash
           docker exec openclash-smoke sh -c \
             "opkg status luci-app-openclash | grep -qx 'Version: $OPENCLASH_RELEASE'"
+          docker exec openclash-smoke test -x \
+            /usr/share/openclash/openclash_core.sh
+          docker exec openclash-smoke sh -c \
+            "grep -Fq 'vernesong/mihomo-oix' /usr/share/openclash/openclash_core.sh"
+          docker exec openclash-smoke test -f \
+            /usr/lib/lua/luci/view/openclash/oix_login.htm
           docker exec openclash-smoke sh -c \
             '[ "$(uci -q get openclash.config.enable)" = 0 ]'
           docker exec openclash-smoke test -x \
