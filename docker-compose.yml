@@ -1,0 +1,54 @@
+services:
+  openclash:
+    container_name: ${CONTAINER_NAME:-openclash}
+    image: ${OPENCLASH_IMAGE:-ghcr.io/gbcdef/openclash-docker:latest}
+    pull_policy: always
+    restart: ${RESTART_POLICY:-unless-stopped}
+
+    # Host networking is required for this container's TUN device to route
+    # Ubuntu host traffic. OpenWrt host-network services are disabled by the
+    # entrypoint before procd starts.
+    network_mode: host
+    privileged: true
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      HOST_NETWORK: "1"
+      HOST_LAN_INTERFACE: ${HOST_LAN_INTERFACE:?Set HOST_LAN_INTERFACE in .env}
+      LUCI_BIND: ${LUCI_BIND:?Set LUCI_BIND in .env}
+      LUCI_PORT: ${LUCI_PORT:-18080}
+      # Mixed was explicitly moved to 7890, so HTTP uses the former mixed port.
+      HTTP_PROXY_PORT: ${HTTP_PROXY_PORT:-7893}
+      SOCKS_PROXY_PORT: ${SOCKS_PROXY_PORT:-7891}
+      REDIR_PROXY_PORT: ${REDIR_PROXY_PORT:-7892}
+      MIXED_PROXY_PORT: ${MIXED_PROXY_PORT:-7890}
+      TPROXY_PORT: ${TPROXY_PORT:-7895}
+      DNS_PORT: ${DNS_PORT:-7874}
+      CONTROLLER_PORT: ${CONTROLLER_PORT:-9090}
+      REQUIRE_OPENCLASH_HEALTHY: ${REQUIRE_OPENCLASH_HEALTHY:-0}
+
+    secrets:
+      - root_password
+
+    volumes:
+      - type: bind
+        source: ${DATA_DIR:-./data}/config
+        target: /etc/config
+      - type: bind
+        source: ${DATA_DIR:-./data}/openclash
+        target: /etc/openclash
+
+    healthcheck:
+      # This reports whether the OpenWrt container is operational. OpenClash is
+      # intentionally checked separately because it is disabled until configured.
+      test: ["CMD", "/usr/local/sbin/container-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+secrets:
+  root_password:
+    file: ${ROOT_PASSWORD_FILE:-./secrets/root_password.txt}

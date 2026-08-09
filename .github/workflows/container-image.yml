@@ -1,0 +1,140 @@
+name: Build container image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  OPENCLASH_RELEASE: 0.47.133
+  OPENCLASH_IPK_SHA256: c2490630043ea7e3db91a8f0d079088bc39c6aab4dc283d292f302064f891b90
+  SMOKE_IMAGE: openclash-docker:smoke
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Select image tags
+        id: image
+        shell: bash
+        run: |
+          image_name="${GITHUB_REPOSITORY,,}"
+          revision_tag="sha-${GITHUB_SHA:0:12}"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            primary_tag="${GITHUB_REF#refs/tags/}"
+          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            primary_tag="latest"
+          else
+            branch_name="${GITHUB_REF#refs/heads/}"
+            safe_branch="$(printf '%s' "${branch_name,,}" | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g')"
+            primary_tag="branch-${safe_branch}"
+          fi
+          echo "name=$REGISTRY/$image_name" >> "$GITHUB_OUTPUT"
+          echo "primary_tag=$primary_tag" >> "$GITHUB_OUTPUT"
+          echo "revision_tag=$revision_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" |
+            docker login "$REGISTRY" \
+              --username "$GITHUB_ACTOR" \
+              --password-stdin
+
+      - name: Build image
+        shell: bash
+        run: |
+          docker build \
+            --build-arg OPENWRT_IMAGE=openwrt/rootfs:x86_64-24.10.8 \
+            --build-arg OPENCLASH_RELEASE="$OPENCLASH_RELEASE" \
+            --build-arg OPENCLASH_IPK_SHA256="$OPENCLASH_IPK_SHA256" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$OPENCLASH_RELEASE" \
+            --tag "$SMOKE_IMAGE" \
+            --tag "${{ steps.image.outputs.name }}:${{ steps.image.outputs.primary_tag }}" \
+            --tag "${{ steps.image.outputs.name }}:${{ steps.image.outputs.revision_tag }}" \
+            .
+
+      - name: Smoke test container
+        shell: bash
+        run: |
+          docker run --detach \
+            --name openclash-smoke \
+            --privileged \
+            --env HOST_NETWORK=0 \
+            --env ENABLE_OPENCLASH_HOOKS=1 \
+            --env ROOT_PASSWORD_FILE=/run/root_password \
+            --volume "$GITHUB_WORKSPACE/secrets/root_password.example:/run/root_password:ro" \
+            --health-cmd /usr/local/sbin/container-healthcheck \
+            --health-interval 5s \
+            --health-timeout 3s \
+            --health-retries 12 \
+            --health-start-period 20s \
+            "$SMOKE_IMAGE"
+
+          for attempt in $(seq 1 24); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' openclash-smoke)"
+            if [[ "$status" == healthy ]]; then
+              break
+            fi
+            if [[ "$status" == unhealthy ]]; then
+              docker logs openclash-smoke
+              exit 1
+            fi
+            sleep 5
+          done
+
+          if [[ "$(docker inspect --format '{{.State.Health.Status}}' openclash-smoke)" != healthy ]]; then
+            docker logs openclash-smoke
+            exit 1
+          fi
+          docker exec openclash-smoke /usr/local/sbin/container-healthcheck
+          docker exec openclash-smoke test -x /etc/init.d/openclash
+          docker exec openclash-smoke sh -c \
+            "opkg status luci-app-openclash | grep -qx 'Version: $OPENCLASH_RELEASE'"
+          docker exec openclash-smoke sh -c \
+            '[ "$(uci -q get openclash.config.enable)" = 0 ]'
+          docker exec openclash-smoke test -x \
+            /etc/openclash/custom/openclash_custom_overwrite.sh
+          docker exec openclash-smoke test -x \
+            /etc/openclash/custom/openclash_custom_firewall_rules.sh
+          docker exec openclash-smoke \
+            /bin/sh /usr/local/share/openclash-hooks/test-hooks.sh
+
+          # OpenClash starts disabled until a user imports a configuration. Its
+          # dedicated check must therefore fail without making the container
+          # itself unhealthy.
+          if docker exec openclash-smoke /usr/local/sbin/openclash-healthcheck; then
+            echo "OpenClash unexpectedly reported running before configuration" >&2
+            exit 1
+          fi
+
+      - name: Clean up smoke test
+        if: always()
+        shell: bash
+        run: docker rm --force openclash-smoke >/dev/null 2>&1 || true
+
+      - name: Push image
+        shell: bash
+        run: |
+          docker push "${{ steps.image.outputs.name }}:${{ steps.image.outputs.primary_tag }}"
+          docker push "${{ steps.image.outputs.name }}:${{ steps.image.outputs.revision_tag }}"
+
+      - name: Log out
+        if: always()
+        shell: bash
+        run: docker logout "$REGISTRY"

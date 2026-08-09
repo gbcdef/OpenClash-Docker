@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+docker-compose.override.yml
+data/
+secrets/*
+!secrets/*.example
+vendor/*
+!vendor/.gitkeep
+!vendor/README.md
+.tools/
+hooks/config/*.yaml
+!hooks/config/*.example.yaml

@@ -1,0 +1,15 @@
+# Copy this file to rules.yaml to enable the rules hook.
+# Top rules retain their listed order. Keep private-network bypasses before a
+# per-client source rule so LAN services stay reachable.
+version: 1
+position: top
+remove:
+  - DOMAIN-SUFFIX,obsolete.example.test,DIRECT
+rules:
+  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+  - SRC-IP-CIDR,192.0.2.50/32,英国自动,no-resolve
+  - DOMAIN-SUFFIX,media.example.test,地区自动选择
+  - DOMAIN-SUFFIX,example.test,DIRECT
+  - IP-CIDR,192.0.2.0/24,DIRECT,no-resolve

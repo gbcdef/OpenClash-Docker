@@ -1,0 +1,7 @@
+# Copy this file to firewall-bypass.yaml to bypass selected traffic before TUN.
+# These values are reserved for documentation and do not identify a real host.
+version: 1
+ipv4-destinations:
+  - 192.0.2.10
+udp-destination-ports:
+  - 3478

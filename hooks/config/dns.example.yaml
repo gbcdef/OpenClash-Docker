@@ -1,0 +1,7 @@
+# Copy this file to dns.yaml to enable DNS customization.
+version: 1
+fake-ip-filter:
+  prepend:
+    - "+.example.test"
+  remove:
+    - "+.obsolete.example.test"

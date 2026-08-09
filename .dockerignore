@@ -1,0 +1,8 @@
+.git
+.env
+data/
+README.md
+secrets/
+vendor/README.md
+hooks/config/*.yaml
+!hooks/config/*.example.yaml
