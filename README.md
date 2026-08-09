@@ -2,13 +2,15 @@
 
 在 Linux 主机上通过 Docker Compose 运行 OpenClash，提供 LuCI 管理界面、代理端口、DNS 和单臂旁路由能力。
 
-这是一个独立的 Docker 打包项目，不包含也不派生自 OpenClash 的 Git 源码历史。镜像以官方 OpenWrt rootfs 为基础，在构建时下载并校验 `vernesong/OpenClash` 发布的 IPK，再通过 `opkg` 安装。仓库应作为独立 GitHub 仓库托管，而不是保留在 OpenClash 的 fork network 中。
+这是一个独立的 Docker 打包项目，不包含也不派生自 OpenClash 的 Git 源码历史。镜像以官方 OpenWrt rootfs 为基础，在构建时下载固定版本的 `vernesong/OpenClash` IPK，再通过 `opkg` 安装并由 CI 验证安装版本。仓库应作为独立 GitHub 仓库托管，而不是保留在 OpenClash 的 fork network 中。
 
 - 镜像：`ghcr.io/gbcdef/openclash-docker:latest`
 - 架构：amd64 / x86_64
 - 配置方式：`docker-compose.yml` + `.env` + Compose secret
 - 数据持久化：宿主机 `./data` 目录
-- 内置 OpenClash：版本由 `Dockerfile` 中的 `OPENCLASH_RELEASE` 固定
+- OpenClash：镜像已安装，首次启动保持关闭，导入有效配置后启用
+- oixCloud 内核：不预装；登录 oixCloud 后由 OpenClash 自动下载并导入订阅
+- 内置配置 hooks：默认开启，可通过 `ENABLE_OPENCLASH_HOOKS=0` 整体关闭
 
 > [!WARNING]
 > 容器使用 `host` 网络和 `privileged` 权限，会操作宿主机的 TUN、路由与防火墙。请只在可信 Linux 主机上运行，不要把 LuCI、控制器、DNS 或无认证代理端口暴露到公网。
@@ -175,7 +177,10 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 ## OpenClash 配置
 
-### 推荐：切换 oixCloud 专用内核
+> [!IMPORTANT]
+> “hooks 默认开启”不等于“OpenClash 和 oixCloud 内核默认运行”。首次启动时只有 OpenWrt/LuCI 和 hooks 安装流程就绪；OpenClash 服务仍保持关闭，oixCloud 专用内核也尚未下载。完成下述登录和配置后，OpenClash 才会下载内核、导入订阅并启动。
+
+### 推荐：登录后自动安装 oixCloud 专用内核
 
 该 Docker 版本可以安装并运行 oixCloud 专用内核。OpenClash 已内置 oixCloud 登录集成，登录后会**自动下载 oixCloud 专用内核并导入专用订阅**。专用内核已内置所需的 DNS 分流与规则，无需再手动补充 DNS 配置，是 OpenClash 用户更省心的使用方案。
 
@@ -208,7 +213,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 ```
 
-默认配置已经构建进镜像，正常启动即可启用：
+默认 hook 配置已经构建进镜像，容器启动时会自动安装 hook dispatcher：
 
 ```sh
 docker compose up -d
