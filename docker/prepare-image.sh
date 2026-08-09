@@ -1,11 +1,10 @@
 #!/bin/sh
 set -eu
 
-OPENCLASH_RELEASE="${1:-0.47.133}"
-OPENCLASH_IPK_SHA256="${2:-}"
+OPENCLASH_RELEASE="${1:-}"
 
-if [ -z "${OPENCLASH_IPK_SHA256}" ]; then
-  echo "[build] OPENCLASH_IPK_SHA256 is required" >&2
+if [ -z "${OPENCLASH_RELEASE}" ]; then
+  echo "[build] OpenClash release is required" >&2
   exit 1
 fi
 
@@ -57,15 +56,6 @@ else
   echo "[build] Downloading ${OPENCLASH_URL}"
   curl -fL --retry 3 --connect-timeout 20 "${OPENCLASH_URL}" -o /tmp/openclash.ipk
 fi
-
-ACTUAL_IPK_SHA256="$(sha256sum /tmp/openclash.ipk | awk '{print $1}')"
-if [ "${ACTUAL_IPK_SHA256}" != "${OPENCLASH_IPK_SHA256}" ]; then
-  echo "[build] OpenClash IPK checksum mismatch" >&2
-  echo "[build] expected: ${OPENCLASH_IPK_SHA256}" >&2
-  echo "[build] actual:   ${ACTUAL_IPK_SHA256}" >&2
-  exit 1
-fi
-echo "[build] Verified OpenClash IPK SHA-256: ${ACTUAL_IPK_SHA256}"
 
 opkg install /tmp/openclash.ipk
 

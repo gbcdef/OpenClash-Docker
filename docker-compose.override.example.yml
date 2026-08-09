@@ -1,9 +1,6 @@
-# Copy this file to docker-compose.override.yml to enable configuration hooks.
+# Optional: copy this file to docker-compose.override.yml to edit the bundled
+# hook configuration locally without rebuilding the image.
 services:
   openclash:
-    environment:
-      ENABLE_OPENCLASH_HOOKS: "1"
     volumes:
-      # Active YAML files in this directory are ignored by Git and are not
-      # baked into the image. Only public *.example.yaml files are tracked.
-      - ${OPENCLASH_HOOK_CONFIG_DIR:-./hooks/config}:/etc/openclash-hooks/config:ro
+      - ${OPENCLASH_HOOK_CONFIG_DIR:-./hooks/config}:/usr/local/share/openclash-hooks/config:ro

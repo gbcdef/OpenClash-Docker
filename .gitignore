@@ -9,5 +9,3 @@ vendor/*
 !vendor/.gitkeep
 !vendor/README.md
 .tools/
-hooks/config/*.yaml
-!hooks/config/*.example.yaml

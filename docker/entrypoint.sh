@@ -6,7 +6,7 @@ HOST_LAN_INTERFACE="${HOST_LAN_INTERFACE:-eth0}"
 LUCI_BIND="${LUCI_BIND:-127.0.0.1}"
 LUCI_PORT="${LUCI_PORT:-18080}"
 DEFAULTS_DIR="${DEFAULTS_DIR:-/usr/local/share/openclash-defaults}"
-ENABLE_OPENCLASH_HOOKS="${ENABLE_OPENCLASH_HOOKS:-0}"
+ENABLE_OPENCLASH_HOOKS="${ENABLE_OPENCLASH_HOOKS:-1}"
 OPENCLASH_HOOK_SOURCE="${OPENCLASH_HOOK_SOURCE:-/usr/local/share/openclash-hooks/openclash_custom_overwrite.sh}"
 OPENCLASH_FIREWALL_HOOK_SOURCE="${OPENCLASH_FIREWALL_HOOK_SOURCE:-/usr/local/share/openclash-hooks/openclash_custom_firewall_rules.sh}"
 

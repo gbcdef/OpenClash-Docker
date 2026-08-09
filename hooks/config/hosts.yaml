@@ -1,0 +1,14 @@
+# Preserve the Vodafone ePDG answers required by the deployment. These
+# provider addresses can rotate and should be checked
+# again if Wi-Fi Calling stops establishing its IPsec tunnel.
+version: 1
+hosts:
+  epdg.epc.mnc002.mcc262.pub.3gppnetwork.org: 139.7.117.168
+  epdg.epc.mnc015.mcc234.pub.3gppnetwork.org:
+    - 148.252.188.96
+    - 88.82.11.208
+    - 88.82.11.221
+  epdg.vodafone.co.uk:
+    - 148.252.188.96
+    - 88.82.11.208
+    - 88.82.11.221

@@ -1,0 +1,5 @@
+# Add deployment-specific destinations or UDP ports here when they must bypass
+# TUN. Empty defaults deliberately add no firewall rules.
+version: 1
+ipv4-destinations: []
+udp-destination-ports: []
