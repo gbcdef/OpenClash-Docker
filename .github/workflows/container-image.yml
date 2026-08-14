@@ -6,9 +6,6 @@ on:
       - main
     tags:
       - "v*"
-  schedule:
-    - cron: "17 2 * * *"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -49,9 +46,8 @@ jobs:
           elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
             primary_tag="latest"
           else
-            branch_name="${GITHUB_REF#refs/heads/}"
-            safe_branch="$(printf '%s' "${branch_name,,}" | sed -E 's/[^a-z0-9._-]+/-/g; s/^-+|-+$//g')"
-            primary_tag="branch-${safe_branch}"
+            echo "Unexpected ref for push-only workflow: $GITHUB_REF" >&2
+            exit 1
           fi
           echo "name=$REGISTRY/$image_name" >> "$GITHUB_OUTPUT"
           echo "openclash_release=$openclash_release" >> "$GITHUB_OUTPUT"

@@ -132,7 +132,7 @@ docker compose up -d
 docker image prune -f
 ```
 
-功能分支可从 GitHub Actions 手动运行镜像工作流。分支构建会发布独立的 `branch-<分支名>` 和不可变的 `sha-<提交>` 标签，不会覆盖 `latest`；远端验证应优先在 `.env` 固定 `sha-<提交>`，确认无误后再合并到 `main`。
+镜像工作流仅在推送到 `main` 或推送 `v*` 标签时运行。`main` 发布 `latest` 和不可变的 `sha-<提交>` 标签；`v*` 标签发布同名版本镜像和对应的 `sha-<提交>` 标签。
 
 删除容器但保留 `DATA_DIR` 中的 OpenClash 配置与订阅：
 
@@ -201,7 +201,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 账号、订阅 URL 和节点配置只应在 LuCI 中填写。它们保存在 `${DATA_DIR}/openclash` 目录中，不应写入 `.env` 或 Compose 文件。
 
-镜像构建时会从 `mihomo-oix` 的 `Pre-Alpha` 发布读取 `version.txt`，下载对应的 `linux-amd64` 资产，并使用同一发布的 `checksums.txt` 校验。构建还会刷新 GeoIP、GeoSite、Country/ASN MMDB 和适配 nftables 的 China route 列表。GitHub Actions 每日定时重建 `latest`；容器启动时会在持久化目录缺少这些资产时从镜像本地补齐，不要求运行主机再访问 GitHub。这不会在缺少 token、订阅和有效配置时强制启动 OpenClash。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
+镜像构建时会从 `mihomo-oix` 的 `Pre-Alpha` 发布读取 `version.txt`，下载对应的 `linux-amd64` 资产，并使用同一发布的 `checksums.txt` 校验。构建还会刷新 GeoIP、GeoSite、Country/ASN MMDB 和适配 nftables 的 China route 列表。GitHub Actions 仅在推送到 `main` 或推送 `v*` 标签时构建；容器启动时会在持久化目录缺少这些资产时从镜像本地补齐，不要求运行主机再访问 GitHub。这不会在缺少 token、订阅和有效配置时强制启动 OpenClash。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
 
 ### 在 oixCloud 订阅上叠加本地配置
 
