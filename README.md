@@ -88,6 +88,8 @@ docker compose ps
 | `HOST_LAN_INTERFACE` | 必须修改 | 宿主机 LAN 网卡 |
 | `LUCI_BIND` | `127.0.0.1` | LuCI 与 DNS 的监听地址 |
 | `LUCI_PORT` | `18080` | LuCI HTTP 端口 |
+| `ENABLE_DOCKER_LUCI_ACCESS` | `0` | 设为 `1` 后允许声明的 Docker IPv4 网段访问 LuCI |
+| `DOCKER_LUCI_SOURCE_CIDR` | `172.16.0.0/12` | Docker 到 LuCI 放行规则的唯一源 CIDR；启用时应缩小为反向代理所在网络 |
 | `MIXED_PROXY_PORT` | `7890` | Mixed 代理端口 |
 | `SOCKS_PROXY_PORT` | `7891` | SOCKS5 代理端口 |
 | `REDIR_PROXY_PORT` | `7892` | Redir 代理端口 |
@@ -99,6 +101,19 @@ docker compose ps
 | `REQUIRE_OPENCLASH_HEALTHY` | `0` | 设为 `1` 后，Compose 健康检查同时要求核心、TUN、策略路由和监听端口正常 |
 
 `.env` 和 `secrets/root_password.txt` 都已被 Git 忽略。密码文件必须保持权限为 `600`，不要上传到 Git 或发送给他人。仓库中的 `secrets/root_password.example` 只是可公开的格式模板，不包含真实密码。
+
+### Docker 网桥反向代理访问 LuCI
+
+LuCI 是管理接口，默认不向 Docker 网桥容器开放。只有反向代理或其他受信任容器必须访问 LuCI 后端时，才在 `.env` 中启用并声明该容器的实际 IPv4 网段：
+
+```dotenv
+ENABLE_DOCKER_LUCI_ACCESS=1
+DOCKER_LUCI_SOURCE_CIDR=172.20.0.0/24
+```
+
+重建容器后，镜像只放行从该 CIDR 到 `LUCI_BIND:LUCI_PORT/tcp` 的流量。规则会随 fw4 reload 恢复，也会由 OpenClash post-firewall hook 在防火墙重建后幂等补回。修改端点或设回 `ENABLE_DOCKER_LUCI_ACCESS=0` 后再执行 `docker compose up -d`，旧规则会被清理。
+
+`LUCI_BIND` 必须是宿主机上具体的非 loopback IPv4 地址，不能是 `0.0.0.0` 或 `127.0.0.0/8`。不要为了方便把 `DOCKER_LUCI_SOURCE_CIDR` 扩大到无关私网，同一网段内任何被入侵的容器都可以尝试访问 LuCI。
 
 ## Docker Compose 使用
 

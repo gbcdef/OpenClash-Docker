@@ -192,23 +192,38 @@ if [ "${1:-}" = list ]; then
 fi
 printf '%s\n' "$*" >> "${NFT_TEST_LOG}"
 SH
-chmod 0755 "${TEST_ROOT}/bin/uci" "${TEST_ROOT}/bin/nft"
+cat > "${TEST_ROOT}/bin/docker-luci-firewall" <<'SH'
+#!/bin/sh
+printf '%s\n' "$*" >> "${DOCKER_LUCI_HELPER_TEST_LOG}"
+SH
+chmod 0755 \
+  "${TEST_ROOT}/bin/uci" \
+  "${TEST_ROOT}/bin/nft" \
+  "${TEST_ROOT}/bin/docker-luci-firewall"
+: > "${TEST_ROOT}/docker-luci-helper.log"
 : > "${TEST_ROOT}/nft.log"
 ENABLE_OPENCLASH_HOOKS=0 \
+DOCKER_LUCI_FIREWALL="${TEST_ROOT}/bin/docker-luci-firewall" \
+DOCKER_LUCI_HELPER_TEST_LOG="${TEST_ROOT}/docker-luci-helper.log" \
 NFT_TEST_LOG="${TEST_ROOT}/nft.log" \
 PATH="${TEST_ROOT}/bin:${PATH}" \
 OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
   /bin/sh "${SOURCE_ROOT}/openclash_custom_firewall_rules.sh"
 [ "$(wc -l < "${TEST_ROOT}/nft.log")" -eq 2 ]
+[ "$(wc -l < "${TEST_ROOT}/docker-luci-helper.log")" -eq 1 ]
+grep -Fxq 'apply' "${TEST_ROOT}/docker-luci-helper.log"
 grep -Fq 'ip saddr 172.16.0.0/12 udp dport 53' "${TEST_ROOT}/nft.log"
 grep -Fq 'ip saddr 172.16.0.0/12 tcp dport 53' "${TEST_ROOT}/nft.log"
 
 : > "${TEST_ROOT}/nft.log"
+DOCKER_LUCI_FIREWALL="${TEST_ROOT}/bin/docker-luci-firewall" \
+DOCKER_LUCI_HELPER_TEST_LOG="${TEST_ROOT}/docker-luci-helper.log" \
 NFT_TEST_LOG="${TEST_ROOT}/nft.log" \
 PATH="${TEST_ROOT}/bin:${PATH}" \
 OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
   /bin/sh "${SOURCE_ROOT}/openclash_custom_firewall_rules.sh"
 [ "$(wc -l < "${TEST_ROOT}/nft.log")" -eq 6 ]
+[ "$(wc -l < "${TEST_ROOT}/docker-luci-helper.log")" -eq 2 ]
 grep -Fq 'ip daddr 192.0.2.10' "${TEST_ROOT}/nft.log"
 grep -Fq 'udp dport 3478' "${TEST_ROOT}/nft.log"
 

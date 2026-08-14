@@ -178,6 +178,8 @@ jobs:
             /etc/openclash/custom/openclash_custom_firewall_rules.sh
           docker exec openclash-smoke \
             /bin/sh /usr/local/share/openclash-hooks/test-hooks.sh
+          docker exec openclash-smoke \
+            /bin/sh /usr/local/share/openclash-tests/test-docker-luci-firewall.sh
 
           # OpenClash starts disabled until a user imports a configuration. Its
           # dedicated check must therefore fail without making the container
