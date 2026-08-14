@@ -5,6 +5,7 @@ HOOK_CONFIG_DIR="${OPENCLASH_HOOK_CONFIG_DIR:-/usr/local/share/openclash-hooks/c
 DEFINITION_FILE="${HOOK_CONFIG_DIR}/firewall-bypass.yaml"
 PREVIOUS_HOOK='/etc/openclash/custom/openclash_custom_firewall_rules.before-docker-hooks.sh'
 HOOKS_ENABLED="${ENABLE_OPENCLASH_HOOKS:-1}"
+DOCKER_LUCI_FIREWALL="${DOCKER_LUCI_FIREWALL:-/usr/local/sbin/docker-luci-firewall}"
 
 if [ -f "${PREVIOUS_HOOK}" ]; then
   /bin/sh "${PREVIOUS_HOOK}"
@@ -25,6 +26,15 @@ ensure_docker_dns_input_rule() {
 # the dnsmasq listeners installed by the container entrypoint.
 ensure_docker_dns_input_rule udp
 ensure_docker_dns_input_rule tcp
+
+# OpenClash also rebuilds away fw4 script includes. Reapply the same managed
+# Docker-to-LuCI rule used by the entrypoint; the helper is idempotent and its
+# independent enable switch remains effective when custom config hooks are off.
+if [ ! -x "${DOCKER_LUCI_FIREWALL}" ]; then
+  echo "[openclash-hooks] missing Docker LuCI firewall helper: ${DOCKER_LUCI_FIREWALL}" >&2
+  exit 1
+fi
+"${DOCKER_LUCI_FIREWALL}" apply
 
 [ "${HOOKS_ENABLED}" = "1" ] || exit 0
 [ -f "${DEFINITION_FILE}" ] || exit 0

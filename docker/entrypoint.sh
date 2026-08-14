@@ -285,6 +285,11 @@ configure_host_network() {
   uci -q set firewall.docker_https_input.family='ipv4'
   uci -q set firewall.docker_https_input.target='ACCEPT'
 
+  # Register the image-native Docker-to-LuCI rule. The helper stores validated
+  # settings in UCI, participates in fw4 reloads, and removes stale rules when
+  # the endpoint changes or the feature is disabled.
+  /usr/local/sbin/docker-luci-firewall configure
+
   # Capture host and Docker embedded-DNS upstream queries without restarting
   # the Docker daemon or changing every Compose project.
   uci -q delete firewall.docker_dns_hijack || true

@@ -39,6 +39,8 @@ docker compose up -d
 
 dispatcher、标准 hooks、默认 YAML 和防火墙入口都已内置在镜像中。容器启动时会把两个入口复制到 OpenClash 的持久化 `custom` 目录并设置执行权限。如果该位置已有不同脚本，entrypoint 会先保存为 `*.before-docker-hooks.sh`，然后由内置入口先执行保留脚本。
 
+Docker 网桥到 LuCI 的放行规则不属于订阅配置 hooks。启用 `ENABLE_DOCKER_LUCI_ACCESS=1` 后，entrypoint 会注册独立的 fw4 include；本防火墙入口也会调用同一个幂等助手，在 OpenClash 重建 `input` 链后恢复规则。`ENABLE_OPENCLASH_HOOKS=0` 不会替代该功能的独立开关。
+
 这些 YAML 受 Git 跟踪并进入 Docker build context。不要写入订阅 URL、令牌、账号或个人域名。`hosts.yaml` 中的 Vodafone 公网 ePDG 地址是部署所需的公开服务端点，可能由运营商轮换。
 
 ## 配置契约
@@ -53,4 +55,4 @@ dispatcher、标准 hooks、默认 YAML 和防火墙入口都已内置在镜像�
 
 schema 错误、provider 不存在或目标组不存在时，hook 会明确失败，不会输出只修改了一部分的代理配置。
 
-镜像 CI 会在 smoke-test 容器中执行 `test-hooks.sh`。测试会连续应用两次全部示例，验证幂等性，确认原有 hosts、provider 节点组和订阅末尾规则没有丢失，并验证错误配置会触发完整回滚。
+镜像 CI 会在 smoke-test 容器中执行 `test-hooks.sh` 和 `test-docker-luci-firewall.sh`。测试会连续应用两次全部示例，验证幂等性，确认原有 hosts、provider 节点组和订阅末尾规则没有丢失，并验证错误配置会触发完整回滚。防火墙助手测试另外覆盖窄化匹配、重复执行、端点变更、禁用清理和恶意配置拒绝。

@@ -23,14 +23,18 @@ RUN chmod 0755 \
 
 COPY docker/entrypoint.sh /usr/local/sbin/container-entrypoint
 COPY docker/docker-tun-firewall.sh /usr/local/sbin/docker-tun-firewall
+COPY docker/docker-luci-firewall.sh /usr/local/sbin/docker-luci-firewall
 COPY docker/container-healthcheck.sh /usr/local/sbin/container-healthcheck
 COPY docker/openclash-healthcheck.sh /usr/local/sbin/openclash-healthcheck
+COPY docker/test-docker-luci-firewall.sh /usr/local/share/openclash-tests/test-docker-luci-firewall.sh
 COPY hooks/ /usr/local/share/openclash-hooks/
 RUN chmod 0755 \
     /usr/local/sbin/container-entrypoint \
     /usr/local/sbin/docker-tun-firewall \
+    /usr/local/sbin/docker-luci-firewall \
     /usr/local/sbin/container-healthcheck \
     /usr/local/sbin/openclash-healthcheck \
+    /usr/local/share/openclash-tests/test-docker-luci-firewall.sh \
     /usr/local/share/openclash-hooks/openclash_custom_overwrite.sh \
     /usr/local/share/openclash-hooks/openclash_custom_firewall_rules.sh \
     /usr/local/share/openclash-hooks/hooks.d/*.sh \
