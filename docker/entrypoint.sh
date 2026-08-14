@@ -96,6 +96,7 @@ install_openclash_hook() {
   SOURCE="$1"
   TARGET="$2"
   BACKUP="$3"
+  TEMPORARY_TARGET="${TARGET}.new.$$"
 
   if [ ! -f "${SOURCE}" ]; then
     echo "[entrypoint] OpenClash hook is missing: ${SOURCE}" >&2
@@ -109,8 +110,10 @@ install_openclash_hook() {
     cp -a "${TARGET}" "${BACKUP}"
   fi
 
-  cp "${SOURCE}" "${TARGET}"
-  chmod 0755 "${TARGET}"
+  rm -f "${TEMPORARY_TARGET}"
+  cp "${SOURCE}" "${TEMPORARY_TARGET}"
+  chmod 0755 "${TEMPORARY_TARGET}"
+  mv -f "${TEMPORARY_TARGET}" "${TARGET}"
 }
 
 configure_root_password() {
@@ -132,8 +135,36 @@ configure_root_password() {
     exit 1
   fi
 
-  printf '%s\n%s\n' "${ROOT_PASSWORD}" "${ROOT_PASSWORD}" | passwd root >/dev/null
-  unset ROOT_PASSWORD ROOT_PASSWORD_SINGLE_LINE
+  if ! PASSWD_OUTPUT="$(
+    printf '%s\n%s\n' "${ROOT_PASSWORD}" "${ROOT_PASSWORD}" |
+      passwd root 2>&1
+  )"; then
+    echo "[entrypoint] failed to set root password" >&2
+    printf '%s\n' "${PASSWD_OUTPUT}" >&2
+    exit 1
+  fi
+  unset ROOT_PASSWORD ROOT_PASSWORD_SINGLE_LINE PASSWD_OUTPUT
+}
+
+configure_container_console() {
+  case "${ENABLE_CONTAINER_CONSOLE:-0}" in
+    0)
+      [ -f /etc/inittab ] || return 0
+      # OpenWrt's default inittab starts login shells on console devices. A
+      # privileged container may resolve those devices to the host consoles.
+      sed -i \
+        -e '/::askfirst:/d' \
+        -e '/::askconsole:/d' \
+        /etc/inittab
+      ;;
+    1)
+      echo "[entrypoint] container console login explicitly enabled" >&2
+      ;;
+    *)
+      echo "[entrypoint] ENABLE_CONTAINER_CONSOLE must be 0 or 1" >&2
+      exit 1
+      ;;
+  esac
 }
 
 configure_host_network() {
@@ -288,5 +319,6 @@ if [ -n "${TZ:-}" ] && [ -f "/usr/share/zoneinfo/${TZ}" ]; then
   ln -sf "/usr/share/zoneinfo/${TZ}" /etc/localtime
 fi
 
+configure_container_console
 configure_root_password
 exec "$@"
