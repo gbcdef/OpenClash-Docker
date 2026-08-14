@@ -10,6 +10,29 @@ ENABLE_OPENCLASH_HOOKS="${ENABLE_OPENCLASH_HOOKS:-1}"
 OPENCLASH_HOOK_SOURCE="${OPENCLASH_HOOK_SOURCE:-/usr/local/share/openclash-hooks/openclash_custom_overwrite.sh}"
 OPENCLASH_FIREWALL_HOOK_SOURCE="${OPENCLASH_FIREWALL_HOOK_SOURCE:-/usr/local/share/openclash-hooks/openclash_custom_firewall_rules.sh}"
 
+ensure_root_filesystem_writable() {
+  PROBE_DIRECTORY="/.openclash-container-write-test.$$"
+
+  if mkdir "${PROBE_DIRECTORY}" 2>/dev/null; then
+    rmdir "${PROBE_DIRECTORY}"
+    return 0
+  fi
+
+  # OpenWrt remounts its root filesystem read-only during a clean shutdown.
+  # Docker can reuse that mount state when starting the same container again.
+  ROOT_MOUNT_SOURCE="$(awk '$2 == "/" { print $1; exit }' /proc/mounts)"
+  if [ -z "${ROOT_MOUNT_SOURCE}" ] \
+    || ! mount -o remount,rw "${ROOT_MOUNT_SOURCE}" / >/dev/null 2>&1; then
+    echo "[entrypoint] failed to remount the container root filesystem read-write" >&2
+    exit 1
+  fi
+  if ! mkdir "${PROBE_DIRECTORY}" 2>/dev/null; then
+    echo "[entrypoint] container root filesystem is read-only" >&2
+    exit 1
+  fi
+  rmdir "${PROBE_DIRECTORY}"
+}
+
 initialize_persistent_directory() {
   SOURCE_DIR="$1"
   TARGET_DIR="$2"
@@ -306,6 +329,7 @@ configure_bridge_network() {
   restore_docker_network &
 }
 
+ensure_root_filesystem_writable
 initialize_persistent_data
 configure_openclash_hooks
 
