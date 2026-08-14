@@ -187,8 +187,6 @@ jobs:
           # Re-run the entrypoint with non-empty persistent directories. The
           # sentinels must survive, proving defaults never overwrite user data.
           docker exec openclash-smoke sh -c \
-            "printf '\n# persistence-sentinel\n' >> /etc/config/openclash"
-          docker exec openclash-smoke sh -c \
             "printf '\npersistence-sentinel\n' >> /etc/openclash/core/.packaged-oix-version"
           docker exec openclash-smoke sh -c \
             "printf '%s\n' \
@@ -199,6 +197,8 @@ jobs:
               > '/etc/openclash/config/oixCloud - smart.yaml'; \
             uci -q set openclash.config.config_path='/etc/openclash/config/oixCloud - smart.yaml'; \
             uci -q commit openclash"
+          docker exec openclash-smoke sh -c \
+            "printf '\n# persistence-sentinel\n' >> /etc/config/openclash"
           docker restart openclash-smoke
           wait_for_health
           docker exec openclash-smoke sh -c \
