@@ -2,14 +2,15 @@
 
 在 Linux 主机上通过 Docker Compose 运行 OpenClash，提供 LuCI 管理界面、代理端口、DNS 和单臂旁路由能力。
 
-这是一个独立的 Docker 打包项目，不包含也不派生自 OpenClash 的 Git 源码历史。镜像以官方 OpenWrt rootfs 为基础，在构建时下载固定版本的 `vernesong/OpenClash` IPK，再通过 `opkg` 安装并由 CI 验证安装版本。仓库应作为独立 GitHub 仓库托管，而不是保留在 OpenClash 的 fork network 中。
+这是一个独立的 Docker 打包项目，不包含也不派生自 OpenClash 的 Git 源码历史。镜像以官方 OpenWrt rootfs 为基础，在构建时解析并下载最新的 `vernesong/OpenClash` IPK，再通过 `opkg` 安装并由 CI 验证安装版本。仓库应作为独立 GitHub 仓库托管，而不是保留在 OpenClash 的 fork network 中。
 
 - 镜像：`ghcr.io/gbcdef/openclash-docker:latest`
 - 架构：amd64 / x86_64
 - 配置方式：`docker-compose.yml` + `.env` + Compose secret
 - 数据持久化：宿主机 `./data` 目录
 - OpenClash：镜像已安装，首次启动保持关闭，导入有效配置后启用
-- oixCloud 内核：不预装；登录 oixCloud 后由 OpenClash 自动下载并导入订阅
+- oixCloud 内核：镜像构建时自动打包当时最新的 x86_64 Oix 内核，首次启动从镜像本地安装
+- 公共数据：构建时打包最新 GeoIP、GeoSite、Country/ASN MMDB 和 IPv4/IPv6 China route 列表
 - 内置配置 hooks：默认开启，可通过 `ENABLE_OPENCLASH_HOOKS=0` 整体关闭
 
 > [!WARNING]
@@ -160,7 +161,7 @@ docker compose up -d
 
 ## 上游版本与构建验证
 
-默认构建使用 `Dockerfile` 中 `OPENCLASH_RELEASE` 固定的版本，不会在每次构建时自动漂移到 `latest`。构建脚本按以下格式下载对应 IPK：
+默认构建使用 `OPENCLASH_RELEASE=latest`，每次由 CI 先解析官方最新 release，再按以下格式下载对应 IPK：
 
 ```text
 https://github.com/vernesong/OpenClash/releases/download/v<版本号>/luci-app-openclash_<版本号>_all.ipk
@@ -170,15 +171,17 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 - LuCI/OpenWrt 基础服务可以响应；
 - `luci-app-openclash` 已安装且版本正确；
+- 构建时自动解析的最新 x86_64 Oix 内核已通过上游 SHA-256 校验并可执行；
+- GeoIP、GeoSite、Country/ASN MMDB 和 nftables China route 列表已打包且非空；
 - `/etc/init.d/openclash` 存在；
 - OpenClash 初始保持关闭，且独立运行状态检查不会误报成功。
 
-升级 OpenClash 时，只需修改 `Dockerfile` 中 `OPENCLASH_RELEASE` 的默认值。GitHub Actions 会自动读取该值用于镜像标签和版本测试，不需要同步修改工作流。也可以离线提供 `vendor/openclash.ipk`；CI 仍会检查最终安装的软件包版本是否与 `OPENCLASH_RELEASE` 一致。
+如需要可重现的历史构建，可在 `docker build` 时显式传入 `--build-arg OPENCLASH_RELEASE=<版本>`。也可以离线提供 `vendor/openclash.ipk`；CI 会检查最终安装的软件包版本是否与本次解析的官方版本一致。
 
 ## OpenClash 配置
 
 > [!IMPORTANT]
-> “hooks 默认开启”不等于“OpenClash 和 oixCloud 内核默认运行”。首次启动时只有 OpenWrt/LuCI 和 hooks 安装流程就绪；OpenClash 服务仍保持关闭，oixCloud 专用内核也尚未下载。完成下述登录和配置后，OpenClash 才会下载内核、导入订阅并启动。
+> “hooks 默认开启”不等于“OpenClash 默认运行”。镜像已包含构建时最新的 oixCloud 专用内核，但 OpenClash 服务仍保持关闭。完成下述登录和配置后，OpenClash 才会导入订阅并启动。
 
 ### 推荐：登录后自动安装 oixCloud 专用内核
 
@@ -190,7 +193,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 1. 打开“服务 → OpenClash”。
 2. 进入“插件设置 → oixCloud”，登录 oixCloud 账号。
-3. 等待专用内核自动下载和专用订阅导入完成。
+3. 等待专用订阅导入完成；若上游已有比镜像更新的内核，OpenClash 仍可正常更新。
 4. 确认活动配置启用了 `allow-lan`，并使用 `.env` 中配置的代理端口。
 5. 启动或重启 OpenClash，检查运行状态。
 
@@ -198,7 +201,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 账号、订阅 URL 和节点配置只应在 LuCI 中填写。它们保存在 `${DATA_DIR}/openclash` 目录中，不应写入 `.env` 或 Compose 文件。
 
-镜像构建时已经安装 OpenClash，并由 CI 验证 oixCloud 登录页面及专用内核下载入口存在。镜像不会预下载随 `Pre-Alpha` 发布滚动更新的 oixCloud 内核，也不会在缺少 token、订阅和有效配置时强制启动 OpenClash：登录成功后由 OpenClash 上游流程下载匹配架构的内核、导入订阅并重启服务，可以避免在本项目中重复维护内核版本、下载地址和用户凭据。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
+镜像构建时会从 `mihomo-oix` 的 `Pre-Alpha` 发布读取 `version.txt`，下载对应的 `linux-amd64` 资产，并使用同一发布的 `checksums.txt` 校验。构建还会刷新 GeoIP、GeoSite、Country/ASN MMDB 和适配 nftables 的 China route 列表。GitHub Actions 每日定时重建 `latest`；容器启动时会在持久化目录缺少这些资产时从镜像本地补齐，不要求运行主机再访问 GitHub。这不会在缺少 token、订阅和有效配置时强制启动 OpenClash。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
 
 ### 在 oixCloud 订阅上叠加本地配置
 

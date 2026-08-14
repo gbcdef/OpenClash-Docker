@@ -6,6 +6,8 @@ on:
       - main
     tags:
       - "v*"
+  schedule:
+    - cron: "17 2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -26,12 +28,19 @@ jobs:
       - name: Select image tags
         id: image
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           image_name="${GITHUB_REPOSITORY,,}"
           openclash_release="$(sed -n 's/^ARG OPENCLASH_RELEASE=//p' Dockerfile)"
           if [[ -z "$openclash_release" || "$openclash_release" == *$'\n'* ]]; then
             echo "Dockerfile must define exactly one OPENCLASH_RELEASE default" >&2
             exit 1
+          fi
+          if [[ "$openclash_release" == latest ]]; then
+            openclash_release="$(
+              gh api repos/vernesong/OpenClash/releases/latest --jq .tag_name
+            )"
           fi
           openclash_release="${openclash_release#v}"
           revision_tag="sha-${GITHUB_SHA:0:12}"
@@ -64,6 +73,7 @@ jobs:
         run: |
           docker build \
             --build-arg OPENWRT_IMAGE=openwrt/rootfs:x86_64-24.10.8 \
+            --build-arg OPENCLASH_RELEASE=${{ steps.image.outputs.openclash_release }} \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.version=${{ steps.image.outputs.openclash_release }}" \
@@ -112,6 +122,27 @@ jobs:
             "opkg status luci-app-openclash | grep -qx 'Version: $OPENCLASH_RELEASE'"
           docker exec openclash-smoke test -x \
             /usr/share/openclash/openclash_core.sh
+          docker exec openclash-smoke test -x \
+            /etc/openclash/core/clash_meta
+          docker exec openclash-smoke sh -c \
+            '/etc/openclash/core/clash_meta -v | grep -Fq "alpha-oix-"'
+          docker exec openclash-smoke test -s \
+            /etc/openclash/core/.packaged-oix-version
+          for asset in \
+            Country.mmdb \
+            GeoIP.dat \
+            GeoSite.dat \
+            ASN.mmdb \
+            china_ip_route.ipset \
+            china_ip6_route.ipset; do
+            docker exec openclash-smoke test -s "/etc/openclash/$asset"
+          done
+          docker exec openclash-smoke grep -Fq \
+            'define china_ip_route = {' \
+            /etc/openclash/china_ip_route.ipset
+          docker exec openclash-smoke grep -Fq \
+            'define china_ip6_route = {' \
+            /etc/openclash/china_ip6_route.ipset
           docker exec openclash-smoke sh -c \
             "grep -Fq 'vernesong/mihomo-oix' /usr/share/openclash/openclash_core.sh"
           docker exec openclash-smoke test -f \

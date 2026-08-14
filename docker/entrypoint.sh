@@ -31,6 +31,41 @@ initialize_persistent_directory() {
 initialize_persistent_data() {
   initialize_persistent_directory "${DEFAULTS_DIR}/config" /etc/config
   initialize_persistent_directory "${DEFAULTS_DIR}/openclash" /etc/openclash
+  install_packaged_openclash_assets
+}
+
+install_packaged_openclash_assets() {
+  for RELATIVE_PATH in \
+    core/clash_meta \
+    core/.packaged-oix-version \
+    Country.mmdb \
+    GeoIP.dat \
+    GeoSite.dat \
+    ASN.mmdb \
+    china_ip_route.ipset \
+    china_ip6_route.ipset; do
+    SOURCE="${DEFAULTS_DIR}/openclash/${RELATIVE_PATH}"
+    TARGET="/etc/openclash/${RELATIVE_PATH}"
+
+    case "${RELATIVE_PATH}" in
+      core/clash_meta)
+        [ -x "${TARGET}" ] && continue
+        ;;
+      *)
+        [ -s "${TARGET}" ] && continue
+        ;;
+    esac
+
+    if [ ! -s "${SOURCE}" ]; then
+      echo "[entrypoint] packaged OpenClash asset is missing: ${RELATIVE_PATH}" >&2
+      exit 1
+    fi
+
+    echo "[entrypoint] installing packaged OpenClash asset: ${RELATIVE_PATH}"
+    mkdir -p "$(dirname "${TARGET}")"
+    cp -a "${SOURCE}" "${TARGET}.new"
+    mv -f "${TARGET}.new" "${TARGET}"
+  done
 }
 
 configure_openclash_hooks() {
