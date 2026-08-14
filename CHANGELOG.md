@@ -17,6 +17,7 @@
 ### 修复
 
 - 在缺少 `/etc/config/system` 时自动创建最小 OpenWrt system 配置，确保 `logd`、`/dev/log` 和 `dnsmasq` 正常启动，避免 DNS 劫持启用后因本机 53 端口无人监听而造成网络中断。
+- host 网络模式下自动将现有 `docker0` 和 `br-*` 网桥的 IPv4 网关加入 dnsmasq 监听地址，并仅允许 Docker 私网来源访问本机 53 端口，修复普通 Docker 容器的 DNS 请求经 OpenClash 重定向后被拒绝的问题。
 - 基础健康检查和 CI 新增 `system` 配置、日志 socket 与 `dnsmasq` 回归校验。
 
 ## 2026-08-14
