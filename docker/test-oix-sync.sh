@@ -62,8 +62,8 @@ OPENCLASH_OIX_CONFIG_DIR="${CONFIG_DIRECTORY}" \
 test -s "${CONFIG_PATH}"
 grep -Fq 'proxy-providers:' "${CONFIG_PATH}"
 grep -Fq 'proxy-groups:' "${CONFIG_PATH}"
-CONFIG_MODE="$(stat -c '%a' "${CONFIG_PATH}" 2>/dev/null || stat -f '%Lp' "${CONFIG_PATH}")"
-[ "${CONFIG_MODE}" = 600 ]
+ruby -e 'exit((File.stat(ARGV.fetch(0)).mode & 0777) == 0600 ? 0 : 1)' \
+  "${CONFIG_PATH}"
 ORIGINAL_SHA256="$(sha256sum "${CONFIG_PATH}" | awk '{ print $1 }')"
 
 if PATH="${FAKE_BIN}:${PATH}" \
