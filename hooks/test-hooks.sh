@@ -34,6 +34,8 @@ tun:
   dns-hijack:
     - tcp://8.8.8.8:53
 dns:
+  default-nameserver:
+    - 192.0.2.53
   fake-ip-filter:
     - "+.existing.example.test"
 proxy-providers:
@@ -93,6 +95,10 @@ end
 
 filters = value.dig('dns', 'fake-ip-filter')
 raise 'ts.net fake-IP filter was not prepended' unless filters.first == '+.ts.net'
+raise 'DNS queries do not respect routing rules' unless value.dig('dns', 'respect-rules') == true
+unless value.dig('dns', 'proxy-server-nameserver') == ['192.0.2.53']
+  raise 'proxy node DNS bootstrap was not inherited from default-nameserver'
+end
 
 sniffer = value.fetch('sniffer')
 %w[enable force-dns-mapping parse-pure-ip override-destination].each do |key|

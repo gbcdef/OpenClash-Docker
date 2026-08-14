@@ -229,7 +229,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 ```text
 10-custom-hosts.sh         合并自定义 hosts
-15-custom-dns.sh           管理 fake-IP 过滤条目
+15-custom-dns.sh           管理 DNS 路由与 fake-IP 过滤条目
 18-custom-runtime.sh       管理 sniffer 与 TUN DNS 劫持
 20-custom-proxy-groups.sh  创建节点组并挂入已有 Proxy 选择器
 30-custom-rules.sh         在 MATCH/FINAL 前插入自定义规则
@@ -242,7 +242,7 @@ custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 docker compose up -d
 ```
 
-默认 YAML 已包含 21 个地区自动组、透明嗅探、TUN DNS 劫持、Tailscale MagicDNS fake-IP 例外、Vodafone ePDG hosts 和 RFC1918 直连规则。不需要某项时可以注释或删除相应条目；整体关闭时在 `.env` 设置 `ENABLE_OPENCLASH_HOOKS=0`。默认配置受 Git 跟踪且会构建进镜像，不应加入用户名、订阅 URL 或令牌。
+默认 YAML 已包含 21 个地区自动组、透明嗅探、TUN DNS 劫持、DNS 上游按规则路由、Tailscale MagicDNS fake-IP 例外、Vodafone ePDG hosts 和 RFC1918 直连规则。不需要某项时可以注释或删除相应条目；整体关闭时在 `.env` 设置 `ENABLE_OPENCLASH_HOOKS=0`。默认配置受 Git 跟踪且会构建进镜像，不应加入用户名、订阅 URL 或令牌。
 
 若希望使用已发布镜像并在宿主机直接修改这些 YAML，可将 `docker-compose.override.example.yml` 复制为 `docker-compose.override.yml`，把本地 `hooks/config` 覆盖挂载进容器；否则直接使用镜像内置版本。
 

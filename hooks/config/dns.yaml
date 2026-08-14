@@ -1,5 +1,8 @@
-# Keep Tailscale MagicDNS names on real IPs.
+# Keep Tailscale MagicDNS names on real IPs and route encrypted fallback DNS
+# through the same policy rules as normal traffic. The hook uses the generated
+# config's default-nameserver entries to bootstrap proxy node resolution.
 version: 1
+respect-rules: true
 fake-ip-filter:
   prepend:
     - "+.ts.net"

@@ -47,7 +47,7 @@ Docker 网桥到 LuCI 的放行规则不属于订阅配置 hooks。启用 `ENABL
 
 - 每个活动配置都以 `version: 1` 开头。不支持的版本会直接失败，避免按错误 schema 静默处理。
 - `hosts.yaml` 在 `hosts` 下保存 Clash hosts 映射；相同主机名会覆盖生成配置中的值。
-- `dns.yaml` 可在 `fake-ip-filter.prepend` 中加入条目，并通过 `fake-ip-filter.remove` 删除旧条目。
+- `dns.yaml` 可让 DNS 上游连接遵循代理规则，并在缺少 `proxy-server-nameserver` 时继承生成配置的 `default-nameserver` 作为代理节点引导解析；还可在 `fake-ip-filter.prepend` 中加入条目，并通过 `fake-ip-filter.remove` 删除旧条目。
 - `runtime.yaml` 只允许管理四个 sniffer 布尔开关、缺失时使用的协议嗅探表和 `tun.dns-hijack`。其他 sniffer/TUN 设置会保留，未知字段会明确失败，避免它变成可覆盖任意 Clash 配置的入口。
 - `proxy-groups.yaml` 在 `groups` 下保存标准 Clash 节点组。`prepend-to` 把自定义组加入现有选择器；`prepend-existing-to` 把一个已经存在的组加入可选的订阅选择器，目标不存在时跳过。`use` 引用的 provider 必须已存在于生成配置中。
 - `rules.yaml` 包含 `rules` 数组、可选的 `remove` 数组和 `position`。`remove` 用于清理旧的精确规则；位置支持 `top` 和 `before-final`，后者会把新规则插在第一个 `MATCH` 或 `FINAL` 之前。
