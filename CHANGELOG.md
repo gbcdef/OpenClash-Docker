@@ -16,6 +16,8 @@
 
 ### 修复
 
+- host 网络模式下将 OpenWrt 逻辑 LAN 映射到实际的 `HOST_LAN_INTERFACE`，避免 dnsmasq、fw4 和 OpenClash 继续访问不存在的默认 `br-lan/eth0`。
+- DNS hook 启用按规则路由上游连接，并在订阅未提供 `proxy-server-nameserver` 时复用其 `default-nameserver`，修复境外 fallback DoH 被直连阻断后持续解析超时的问题。
 - 新增默认关闭的 Docker 网桥到 LuCI 最小权限放行规则，严格匹配声明的源 CIDR、`LUCI_BIND` 和 `LUCI_PORT/tcp`，并在 fw4 reload 和 OpenClash 防火墙重建后幂等恢复。
 - 在缺少 `/etc/config/system` 时自动创建最小 OpenWrt system 配置，确保 `logd`、`/dev/log` 和 `dnsmasq` 正常启动，避免 DNS 劫持启用后因本机 53 端口无人监听而造成网络中断。
 - host 网络模式下自动将现有 `docker0` 和 `br-*` 网桥的 IPv4 网关加入 dnsmasq 监听地址，并仅允许 Docker 私网来源访问本机 53 端口，修复普通 Docker 容器的 DNS 请求经 OpenClash 重定向后被拒绝的问题。

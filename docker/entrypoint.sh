@@ -234,6 +234,18 @@ configure_host_network() {
     "/etc/init.d/${service}" disable >/dev/null 2>&1 || true
   done
 
+  # dnsmasq, fw4 and OpenClash still resolve the logical LAN through UCI even
+  # though netifd is disabled in host-network mode. Point it at the real host
+  # device without assigning addresses, instead of retaining OpenWrt's default
+  # br-lan/eth0 topology which does not exist in this network namespace.
+  uci -q set network.lan='interface'
+  uci -q set "network.lan.device=${HOST_LAN_INTERFACE}"
+  uci -q set network.lan.proto='none'
+  uci -q delete network.lan.ipaddr || true
+  uci -q delete network.lan.netmask || true
+  uci -q delete network.lan.ip6assign || true
+  uci -q commit network
+
   mkdir -p /var/lock /var/log /var/run /var/state /var/tmp /tmp/.uci /tmp/resolv.conf.d /etc/crontabs
   chmod 1777 /var/lock
   chmod 0700 /tmp/.uci
