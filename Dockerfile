@@ -5,9 +5,15 @@ ARG OPENCLASH_RELEASE=latest
 ARG OIX_CORE_RELEASE=Pre-Alpha
 
 COPY docker/prepare-image.sh /usr/local/sbin/prepare-image
+COPY docker/openclash-oix-sync.sh /usr/local/sbin/openclash-oix-sync
+COPY docker/test-oix-sync.sh /usr/local/share/openclash-tests/test-oix-sync.sh
+COPY docker/patches/ /tmp/openclash-docker-patches/
 COPY vendor/ /tmp/vendor/
 
-RUN chmod 0755 /usr/local/sbin/prepare-image \
+RUN chmod 0755 \
+      /usr/local/sbin/prepare-image \
+      /usr/local/sbin/openclash-oix-sync \
+      /usr/local/share/openclash-tests/test-oix-sync.sh \
     && /usr/local/sbin/prepare-image "${OPENCLASH_RELEASE}" "${OIX_CORE_RELEASE}" \
     && mkdir -p /usr/local/share/openclash-defaults \
     && mv /etc/config /usr/local/share/openclash-defaults/config \

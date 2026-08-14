@@ -10,11 +10,14 @@
 - 数据持久化：宿主机 `./data` 目录
 - OpenClash：镜像已安装，首次启动保持关闭，导入有效配置后启用
 - oixCloud 内核：镜像构建时自动打包当时最新的 x86_64 Oix 内核，首次启动从镜像本地安装
+- oixCloud 同步：自动创建配置目录，经 HTTPS 下载到临时文件并校验 Clash YAML 后原子替换；登录成功与同步失败分别提示
 - 公共数据：构建时打包最新 GeoIP、GeoSite、Country/ASN MMDB 和 IPv4/IPv6 China route 列表
 - 内置配置 hooks：默认开启，可通过 `ENABLE_OPENCLASH_HOOKS=0` 整体关闭
 
 > [!WARNING]
 > 容器使用 `host` 网络和 `privileged` 权限，会操作宿主机的 TUN、路由与防火墙。请只在可信 Linux 主机上运行，不要把 LuCI、控制器、DNS 或无认证代理端口暴露到公网。
+
+镜像构建会对 OpenClash 当前 oixCloud Controller 应用带源码签名校验的兼容性补丁。上游对应代码发生变化时，构建会停止并要求复核补丁，避免把旧适配静默覆盖到未知版本。
 
 ## 安装
 

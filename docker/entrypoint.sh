@@ -63,6 +63,7 @@ directory_has_entries() {
 initialize_persistent_data() {
   initialize_persistent_directory "${DEFAULTS_DIR}/config" /etc/config
   initialize_persistent_directory "${DEFAULTS_DIR}/openclash" /etc/openclash
+  mkdir -p /etc/openclash/config
   install_packaged_openclash_assets
 }
 
