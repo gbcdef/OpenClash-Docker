@@ -86,6 +86,15 @@ ensure_system_config() {
   uci commit system
 }
 
+add_docker_bridge_dns_listeners() {
+  ip -4 -o addr show |
+    awk '$2 == "docker0" || $2 ~ /^br-/ { split($4, cidr, "/"); print cidr[1] }' |
+    while IFS= read -r ADDRESS; do
+      [ -n "${ADDRESS}" ] || continue
+      uci -q add_list "dhcp.@dnsmasq[0].listen_address=${ADDRESS}"
+    done
+}
+
 install_packaged_openclash_assets() {
   for RELATIVE_PATH in \
     core/clash_meta \
@@ -264,6 +273,18 @@ configure_host_network() {
   uci -q set firewall.docker_tun_input.family='ipv4'
   uci -q set firewall.docker_tun_input.target='ACCEPT'
 
+  # DNS queries from bridge containers are redirected to the host's port 53.
+  # Permit only Docker's private IPv4 sources to reach that local listener.
+  uci -q delete firewall.docker_dns_input || true
+  uci -q set firewall.docker_dns_input='rule'
+  uci -q set firewall.docker_dns_input.name='Allow-Docker-Host-DNS'
+  uci -q set firewall.docker_dns_input.src='*'
+  uci -q set firewall.docker_dns_input.src_ip='172.16.0.0/12'
+  uci -q set firewall.docker_dns_input.dest_port='53'
+  uci -q set firewall.docker_dns_input.proto='tcp udp'
+  uci -q set firewall.docker_dns_input.family='ipv4'
+  uci -q set firewall.docker_dns_input.target='ACCEPT'
+
   # Allow containers to reach an HTTPS reverse proxy on the host. Keep this
   # exception limited to HTTPS and the standard Docker private address range.
   uci -q delete firewall.docker_https_input || true
@@ -293,6 +314,7 @@ configure_host_network() {
   uci -q delete dhcp.@dnsmasq[0].listen_address || true
   uci -q add_list "dhcp.@dnsmasq[0].listen_address=${LUCI_BIND}"
   uci -q add_list dhcp.@dnsmasq[0].listen_address='127.0.0.1'
+  add_docker_bridge_dns_listeners
   uci -q delete dhcp.@dnsmasq[0].server || true
   uci -q add_list "dhcp.@dnsmasq[0].server=127.0.0.1#${DNS_PORT:-7874}"
   uci -q set dhcp.lan.ignore='1'
