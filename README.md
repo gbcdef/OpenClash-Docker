@@ -5,6 +5,7 @@
 这是一个独立的 Docker 打包项目，不包含也不派生自 OpenClash 的 Git 源码历史。镜像以官方 OpenWrt rootfs 为基础，在构建时解析并下载最新的 `vernesong/OpenClash` IPK，再通过 `opkg` 安装并由 CI 验证安装版本。仓库应作为独立 GitHub 仓库托管，而不是保留在 OpenClash 的 fork network 中。
 
 - 镜像：`ghcr.io/gbcdef/openclash-docker:latest`
+- 更新记录：[CHANGELOG.md](CHANGELOG.md)
 - 架构：amd64 / x86_64
 - 配置方式：`docker-compose.yml` + `.env` + Compose secret
 - 数据持久化：宿主机 `./data` 目录
