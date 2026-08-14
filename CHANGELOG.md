@@ -14,6 +14,11 @@
 
 ## 未发布
 
+### 新增
+
+- 地区代理组 hook 新增来源感知 profile：保持 oixCloud provider 的 21 个地区组，同时支持为带独立规则的内联节点订阅生成非空地区组，并额外识别中国大陆、阿联酋、巴基斯坦、乌克兰和越南。
+- `dev` 分支推送自动构建 `latest-dev` 测试镜像；`main` 仍只发布 `latest`。
+
 ### 修复
 
 - host 网络模式下将 OpenWrt 逻辑 LAN 映射到实际的 `HOST_LAN_INTERFACE`，避免 dnsmasq、fw4 和 OpenClash 继续访问不存在的默认 `br-lan/eth0`。

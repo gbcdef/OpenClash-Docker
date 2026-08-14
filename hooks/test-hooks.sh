@@ -4,6 +4,9 @@ set -eu
 SOURCE_ROOT="$(CDPATH= cd "$(dirname "$0")" && pwd)"
 TEST_ROOT="/tmp/openclash-hooks-test.$$"
 CONFIG_FILE="${TEST_ROOT}/generated.yaml"
+INLINE_CONFIG_FILE="${TEST_ROOT}/inline-generated.yaml"
+LEGACY_CONFIG_FILE="${TEST_ROOT}/legacy-generated.yaml"
+UNMATCHED_CONFIG_FILE="${TEST_ROOT}/unmatched-generated.yaml"
 
 cleanup() {
   case "${TEST_ROOT}" in
@@ -147,8 +150,175 @@ raise 'RFC1918 bypasses are not first' unless rules.first(3) == private_bypasses
 raise 'subscription final rule was lost' unless rules.last == 'MATCH,Proxy'
 RUBY
 
+# A self-contained inline subscription keeps its own rules and proxy groups.
+# Only regional url-test groups and the selector are generated from its nodes.
+cat > "${INLINE_CONFIG_FILE}" <<'YAML'
+hosts: {}
+sniffer:
+  enable: false
+tun:
+  enable: true
+dns:
+  default-nameserver:
+    - 192.0.2.53
+  fake-ip-filter: []
+proxies:
+  - {name: "🇭🇰 香港 01", type: direct}
+  - {name: "🇨🇳 台湾 01", type: direct}
+  - {name: "🇸🇬 新加坡 01", type: direct}
+  - {name: "🇨🇳 上海 01", type: direct}
+  - {name: "🇦🇪 迪拜 01", type: direct}
+  - {name: "🇵🇰 巴基斯坦 01", type: direct}
+  - {name: "🇺🇦 乌克兰 01", type: direct}
+  - {name: "🇻🇳 越南 01", type: direct}
+  - {name: "未分类 01", type: direct}
+proxy-groups:
+  - name: 守候网络
+    type: select
+    proxies:
+      - "🇭🇰 香港 01"
+      - "🇨🇳 台湾 01"
+      - "🇸🇬 新加坡 01"
+      - "🇨🇳 上海 01"
+      - "🇦🇪 迪拜 01"
+      - "🇵🇰 巴基斯坦 01"
+      - "🇺🇦 乌克兰 01"
+      - "🇻🇳 越南 01"
+      - "未分类 01"
+  - name: Microsoft
+    type: select
+    proxies:
+      - 守候网络
+      - DIRECT
+  - name: 漏网之鱼
+    type: select
+    proxies:
+      - 守候网络
+      - DIRECT
+rules:
+  - DOMAIN-SUFFIX,inline.example.test,Microsoft
+  - MATCH,漏网之鱼
+YAML
+
+OPENCLASH_HOOK_ROOT="${TEST_ROOT}" \
+OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${SOURCE_ROOT}/openclash_custom_overwrite.sh" "${INLINE_CONFIG_FILE}"
+INLINE_FIRST_SHA256="$(sha256sum "${INLINE_CONFIG_FILE}" | awk '{print $1}')"
+OPENCLASH_HOOK_ROOT="${TEST_ROOT}" \
+OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${SOURCE_ROOT}/openclash_custom_overwrite.sh" "${INLINE_CONFIG_FILE}"
+INLINE_SECOND_SHA256="$(sha256sum "${INLINE_CONFIG_FILE}" | awk '{print $1}')"
+[ "${INLINE_FIRST_SHA256}" = "${INLINE_SECOND_SHA256}" ]
+
+ruby -ryaml -E UTF-8 - "${INLINE_CONFIG_FILE}" <<'RUBY'
+value = YAML.load_file(ARGV.fetch(0))
+groups = value.fetch('proxy-groups')
+expected_regions = [
+  '香港自动', '台湾自动', '新加坡自动', '中国大陆自动', '阿联酋自动',
+  '巴基斯坦自动', '乌克兰自动', '越南自动'
+]
+selector = groups.find { |group| group['name'] == '地区自动选择' }
+raise 'inline regional selector was not added' unless selector
+unless selector['proxies'] == expected_regions
+  raise "inline regional selector choices are wrong: #{selector['proxies'].inspect}"
+end
+raise 'empty inline region was not skipped' if groups.any? { |group| group['name'] == '日本自动' }
+
+expected_nodes = {
+  '香港自动' => ['🇭🇰 香港 01'],
+  '台湾自动' => ['🇨🇳 台湾 01'],
+  '新加坡自动' => ['🇸🇬 新加坡 01'],
+  '中国大陆自动' => ['🇨🇳 上海 01'],
+  '阿联酋自动' => ['🇦🇪 迪拜 01'],
+  '巴基斯坦自动' => ['🇵🇰 巴基斯坦 01'],
+  '乌克兰自动' => ['🇺🇦 乌克兰 01'],
+  '越南自动' => ['🇻🇳 越南 01']
+}
+expected_nodes.each do |name, nodes|
+  group = groups.find { |candidate| candidate['name'] == name }
+  raise "inline regional group is missing: #{name}" unless group
+  raise "#{name} is not url-test" unless group['type'] == 'url-test'
+  raise "#{name} has the wrong nodes" unless group['proxies'] == nodes
+  raise "#{name} unexpectedly uses a provider" if group.key?('use')
+  raise "#{name} unexpectedly kept a provider filter" if group.key?('filter')
+end
+
+main_group = groups.find { |group| group['name'] == '守候网络' }
+unless main_group['proxies'].first == '地区自动选择'
+  raise 'inline regional selector was not exposed in the subscription main group'
+end
+microsoft = groups.find { |group| group['name'] == 'Microsoft' }
+unless microsoft['proxies'].first == '守候网络'
+  raise 'provider-specific prepend rules leaked into the inline profile'
+end
+
+rules = value.fetch('rules')
+raise 'inline subscription rule was lost' unless rules.include?('DOMAIN-SUFFIX,inline.example.test,Microsoft')
+raise 'inline subscription final rule was lost' unless rules.last == 'MATCH,漏网之鱼'
+RUBY
+
+# Existing private version 1 definitions remain valid across an image upgrade.
+cp "${TEST_ROOT}/config/proxy-groups.yaml" "${TEST_ROOT}/config/proxy-groups-v2.yaml"
+cat > "${TEST_ROOT}/config/proxy-groups.yaml" <<'YAML'
+version: 1
+groups:
+  - name: Legacy Auto
+    type: url-test
+    use: [oixCloud]
+    url: http://cp.cloudflare.com/generate_204
+    interval: 3600
+prepend-to:
+  Proxy: [Legacy Auto]
+YAML
+cat > "${LEGACY_CONFIG_FILE}" <<'YAML'
+proxy-providers:
+  oixCloud:
+    type: http
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies: [DIRECT]
+rules:
+  - MATCH,Proxy
+YAML
+OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${TEST_ROOT}/hooks.d/20-custom-proxy-groups.sh" "${LEGACY_CONFIG_FILE}"
+ruby -ryaml -E UTF-8 - "${LEGACY_CONFIG_FILE}" <<'RUBY'
+value = YAML.load_file(ARGV.fetch(0))
+groups = value.fetch('proxy-groups')
+legacy = groups.find { |group| group['name'] == 'Legacy Auto' }
+raise 'legacy version 1 group was not added' unless legacy
+raise 'legacy provider reference was lost' unless legacy['use'] == ['oixCloud']
+proxy = groups.find { |group| group['name'] == 'Proxy' }
+raise 'legacy prepend-to was not applied' unless proxy['proxies'].first == 'Legacy Auto'
+RUBY
+mv "${TEST_ROOT}/config/proxy-groups-v2.yaml" "${TEST_ROOT}/config/proxy-groups.yaml"
+
+# An unrelated inline configuration must remain byte-for-byte untouched.
+cat > "${UNMATCHED_CONFIG_FILE}" <<'YAML'
+proxies:
+  - {name: "unrelated", type: direct}
+proxy-groups:
+  - name: Other
+    type: select
+    proxies: [unrelated, DIRECT]
+rules:
+  - MATCH,Other
+YAML
+UNMATCHED_BEFORE_SHA256="$(sha256sum "${UNMATCHED_CONFIG_FILE}" | awk '{print $1}')"
+OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${TEST_ROOT}/hooks.d/20-custom-proxy-groups.sh" "${UNMATCHED_CONFIG_FILE}"
+UNMATCHED_AFTER_SHA256="$(sha256sum "${UNMATCHED_CONFIG_FILE}" | awk '{print $1}')"
+[ "${UNMATCHED_BEFORE_SHA256}" = "${UNMATCHED_AFTER_SHA256}" ]
+
 # A schema/provider error must leave the last valid generated config untouched.
-sed -i 's/oixCloud/missing-provider/g' "${TEST_ROOT}/config/proxy-groups.yaml"
+ruby -ryaml -E UTF-8 - "${TEST_ROOT}/config/proxy-groups.yaml" <<'RUBY'
+path = ARGV.fetch(0)
+value = YAML.load_file(path)
+profile = value.fetch('profiles').find { |candidate| candidate['name'] == 'oix-provider' }
+profile.fetch('source')['provider'] = 'missing-provider'
+File.open(path, 'w') { |file| YAML.dump(value, file) }
+RUBY
 BEFORE_FAILURE_SHA256="$(sha256sum "${CONFIG_FILE}" | awk '{print $1}')"
 if OPENCLASH_HOOK_ROOT="${TEST_ROOT}" \
   OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
