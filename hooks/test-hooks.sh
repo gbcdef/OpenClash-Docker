@@ -199,13 +199,16 @@ NFT_TEST_LOG="${TEST_ROOT}/nft.log" \
 PATH="${TEST_ROOT}/bin:${PATH}" \
 OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
   /bin/sh "${SOURCE_ROOT}/openclash_custom_firewall_rules.sh"
-[ ! -s "${TEST_ROOT}/nft.log" ]
+[ "$(wc -l < "${TEST_ROOT}/nft.log")" -eq 2 ]
+grep -Fq 'ip saddr 172.16.0.0/12 udp dport 53' "${TEST_ROOT}/nft.log"
+grep -Fq 'ip saddr 172.16.0.0/12 tcp dport 53' "${TEST_ROOT}/nft.log"
 
+: > "${TEST_ROOT}/nft.log"
 NFT_TEST_LOG="${TEST_ROOT}/nft.log" \
 PATH="${TEST_ROOT}/bin:${PATH}" \
 OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
   /bin/sh "${SOURCE_ROOT}/openclash_custom_firewall_rules.sh"
-[ "$(wc -l < "${TEST_ROOT}/nft.log")" -eq 4 ]
+[ "$(wc -l < "${TEST_ROOT}/nft.log")" -eq 6 ]
 grep -Fq 'ip daddr 192.0.2.10' "${TEST_ROOT}/nft.log"
 grep -Fq 'udp dport 3478' "${TEST_ROOT}/nft.log"
 

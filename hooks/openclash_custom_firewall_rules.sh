@@ -10,6 +10,22 @@ if [ -f "${PREVIOUS_HOOK}" ]; then
   /bin/sh "${PREVIOUS_HOOK}"
 fi
 
+ensure_docker_dns_input_rule() {
+  PROTOCOL="$1"
+  COMMENT="OpenClash Docker DNS Input ${PROTOCOL}"
+
+  nft list chain inet fw4 input >/dev/null 2>&1 || return 0
+  if ! nft list chain inet fw4 input | grep -Fq "${COMMENT}"; then
+    nft "insert rule inet fw4 input ip saddr 172.16.0.0/12 ${PROTOCOL} dport 53 counter accept comment \"${COMMENT}\""
+  fi
+}
+
+# OpenClash rebuilds the fw4 input chain while starting. Add these rules from
+# its post-firewall hook so DNS redirected from Docker bridge networks reaches
+# the dnsmasq listeners installed by the container entrypoint.
+ensure_docker_dns_input_rule udp
+ensure_docker_dns_input_rule tcp
+
 [ "${HOOKS_ENABLED}" = "1" ] || exit 0
 [ -f "${DEFINITION_FILE}" ] || exit 0
 
