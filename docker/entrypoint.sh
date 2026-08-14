@@ -15,7 +15,7 @@ initialize_persistent_directory() {
   TARGET_DIR="$2"
 
   mkdir -p "${TARGET_DIR}"
-  if [ -n "$(find "${TARGET_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+  if directory_has_entries "${TARGET_DIR}"; then
     return
   fi
 
@@ -26,6 +26,15 @@ initialize_persistent_directory() {
 
   echo "[entrypoint] initializing ${TARGET_DIR}"
   cp -a "${SOURCE_DIR}/." "${TARGET_DIR}/"
+}
+
+directory_has_entries() {
+  for ENTRY in "${1}"/* "${1}"/.[!.]* "${1}"/..?*; do
+    if [ -e "${ENTRY}" ] || [ -L "${ENTRY}" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 initialize_persistent_data() {

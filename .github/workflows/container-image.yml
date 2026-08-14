@@ -83,6 +83,22 @@ jobs:
         env:
           OPENCLASH_RELEASE: ${{ steps.image.outputs.openclash_release }}
         run: |
+          wait_for_health() {
+            for attempt in $(seq 1 24); do
+              status="$(docker inspect --format '{{.State.Health.Status}}' openclash-smoke)"
+              if [[ "$status" == healthy ]]; then
+                return 0
+              fi
+              if [[ "$status" == unhealthy ]]; then
+                docker logs openclash-smoke
+                return 1
+              fi
+              sleep 5
+            done
+            docker logs openclash-smoke
+            return 1
+          }
+
           docker run --detach \
             --name openclash-smoke \
             --privileged \
@@ -96,22 +112,7 @@ jobs:
             --health-start-period 20s \
             "$SMOKE_IMAGE"
 
-          for attempt in $(seq 1 24); do
-            status="$(docker inspect --format '{{.State.Health.Status}}' openclash-smoke)"
-            if [[ "$status" == healthy ]]; then
-              break
-            fi
-            if [[ "$status" == unhealthy ]]; then
-              docker logs openclash-smoke
-              exit 1
-            fi
-            sleep 5
-          done
-
-          if [[ "$(docker inspect --format '{{.State.Health.Status}}' openclash-smoke)" != healthy ]]; then
-            docker logs openclash-smoke
-            exit 1
-          fi
+          wait_for_health
           docker exec openclash-smoke /usr/local/sbin/container-healthcheck
           docker exec openclash-smoke test -x /etc/init.d/openclash
           docker exec openclash-smoke sh -c \
@@ -157,6 +158,25 @@ jobs:
           # itself unhealthy.
           if docker exec openclash-smoke /usr/local/sbin/openclash-healthcheck; then
             echo "OpenClash unexpectedly reported running before configuration" >&2
+            exit 1
+          fi
+
+          # Re-run the entrypoint with non-empty persistent directories. The
+          # sentinels must survive, proving defaults never overwrite user data.
+          docker exec openclash-smoke sh -c \
+            "printf '\n# persistence-sentinel\n' >> /etc/config/openclash"
+          docker exec openclash-smoke sh -c \
+            "printf '\npersistence-sentinel\n' >> /etc/openclash/core/.packaged-oix-version"
+          docker restart openclash-smoke
+          wait_for_health
+          docker exec openclash-smoke grep -Fq \
+            '# persistence-sentinel' \
+            /etc/config/openclash
+          docker exec openclash-smoke grep -Fq \
+            'persistence-sentinel' \
+            /etc/openclash/core/.packaged-oix-version
+          if docker logs openclash-smoke 2>&1 | grep -Fq 'find: unrecognized'; then
+            echo "Entrypoint used an unsupported BusyBox find option" >&2
             exit 1
           fi
 
