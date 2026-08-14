@@ -105,6 +105,8 @@ jobs:
             --env HOST_NETWORK=0 \
             --env ROOT_PASSWORD_FILE=/run/root_password \
             --volume "$GITHUB_WORKSPACE/secrets/root_password.example:/run/root_password:ro" \
+            --volume openclash-smoke-config:/etc/config \
+            --volume openclash-smoke-data:/etc/openclash \
             --health-cmd /usr/local/sbin/container-healthcheck \
             --health-interval 5s \
             --health-timeout 3s \
@@ -177,6 +179,8 @@ jobs:
           docker restart openclash-smoke
           wait_for_health
           docker exec openclash-smoke sh -c \
+            'touch /etc/.root-write-smoke && rm -f /etc/.root-write-smoke'
+          docker exec openclash-smoke sh -c \
             '! grep -Eq "::ask(first|console):" /etc/inittab'
           if docker exec openclash-smoke ps w |
             grep -Eq '(^|/)(login|login\.sh)( |$)'; then
@@ -201,7 +205,11 @@ jobs:
       - name: Clean up smoke test
         if: always()
         shell: bash
-        run: docker rm --force openclash-smoke >/dev/null 2>&1 || true
+        run: |
+          docker rm --force openclash-smoke >/dev/null 2>&1 || true
+          docker volume rm --force \
+            openclash-smoke-config \
+            openclash-smoke-data >/dev/null 2>&1 || true
 
       - name: Push image
         shell: bash
