@@ -91,6 +91,7 @@ docker compose ps
 | `TPROXY_PORT` | `7895` | TProxy 端口 |
 | `DNS_PORT` | `7874` | OpenClash DNS 端口 |
 | `CONTROLLER_PORT` | `9090` | OpenClash Controller 端口 |
+| `ENABLE_CONTAINER_CONSOLE` | `0` | 默认删除 OpenWrt 控制台登录项；仅在明确需要容器控制台调试时设为 `1` |
 | `REQUIRE_OPENCLASH_HEALTHY` | `0` | 设为 `1` 后，Compose 健康检查同时要求核心、TUN、策略路由和监听端口正常 |
 
 `.env` 和 `secrets/root_password.txt` 都已被 Git 忽略。密码文件必须保持权限为 `600`，不要上传到 Git 或发送给他人。仓库中的 `secrets/root_password.example` 只是可公开的格式模板，不包含真实密码。

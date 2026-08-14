@@ -113,6 +113,13 @@ jobs:
             "$SMOKE_IMAGE"
 
           wait_for_health
+          docker exec openclash-smoke sh -c \
+            '! grep -Eq "::ask(first|console):" /etc/inittab'
+          if docker exec openclash-smoke ps w |
+            grep -Eq '(^|/)(login|login\.sh)( |$)'; then
+            echo "Container console login process is running" >&2
+            exit 1
+          fi
           docker exec openclash-smoke /usr/local/sbin/container-healthcheck
           docker exec openclash-smoke test -x /etc/init.d/openclash
           docker exec openclash-smoke sh -c \
@@ -169,6 +176,13 @@ jobs:
             "printf '\npersistence-sentinel\n' >> /etc/openclash/core/.packaged-oix-version"
           docker restart openclash-smoke
           wait_for_health
+          docker exec openclash-smoke sh -c \
+            '! grep -Eq "::ask(first|console):" /etc/inittab'
+          if docker exec openclash-smoke ps w |
+            grep -Eq '(^|/)(login|login\.sh)( |$)'; then
+            echo "Container console login process is running after restart" >&2
+            exit 1
+          fi
           docker exec openclash-smoke grep -Fq \
             '# persistence-sentinel' \
             /etc/config/openclash
@@ -177,6 +191,10 @@ jobs:
             /etc/openclash/core/.packaged-oix-version
           if docker logs openclash-smoke 2>&1 | grep -Fq 'find: unrecognized'; then
             echo "Entrypoint used an unsupported BusyBox find option" >&2
+            exit 1
+          fi
+          if docker logs openclash-smoke 2>&1 | grep -Fq 'passwd:'; then
+            echo "Successful password setup leaked into startup logs" >&2
             exit 1
           fi
 
