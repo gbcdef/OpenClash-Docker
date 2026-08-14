@@ -67,6 +67,25 @@ initialize_persistent_data() {
   install_packaged_openclash_assets
 }
 
+ensure_system_config() {
+  if uci -q get 'system.@system[0]' >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Some OpenWrt rootfs releases do not include /etc/config/system. Without a
+  # system section the log init script creates no logd instance, so /dev/log
+  # remains absent and dnsmasq cannot start inside its procd jail.
+  echo "[entrypoint] creating missing OpenWrt system config"
+  touch /etc/config/system
+  uci -q delete system.container || true
+  uci set system.container='system'
+  uci set system.container.hostname='openclash'
+  uci set system.container.timezone='CST-8'
+  uci set "system.container.zonename=${TZ:-Asia/Shanghai}"
+  uci set system.container.log_size='64'
+  uci commit system
+}
+
 install_packaged_openclash_assets() {
   for RELATIVE_PATH in \
     core/clash_meta \
@@ -332,6 +351,7 @@ configure_bridge_network() {
 
 ensure_root_filesystem_writable
 initialize_persistent_data
+ensure_system_config
 configure_openclash_hooks
 
 if [ "${HOST_NETWORK}" = "1" ]; then

@@ -123,6 +123,9 @@ jobs:
             exit 1
           fi
           docker exec openclash-smoke /usr/local/sbin/container-healthcheck
+          docker exec openclash-smoke uci -q get 'system.@system[0]'
+          docker exec openclash-smoke test -S /dev/log
+          docker exec openclash-smoke /etc/init.d/dnsmasq status
           docker exec openclash-smoke test -x /etc/init.d/openclash
           docker exec openclash-smoke sh -c \
             "opkg status luci-app-openclash | grep -qx 'Version: $OPENCLASH_RELEASE'"
@@ -201,6 +204,7 @@ jobs:
             "printf '\n# persistence-sentinel\n' >> /etc/config/openclash"
           docker restart openclash-smoke
           wait_for_health
+          docker exec openclash-smoke /usr/local/sbin/container-healthcheck
           docker exec openclash-smoke sh -c \
             'touch /etc/.root-write-smoke && rm -f /etc/.root-write-smoke'
           docker exec openclash-smoke sh -c \
