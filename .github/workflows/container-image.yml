@@ -153,6 +153,20 @@ jobs:
             "grep -Fq 'vernesong/mihomo-oix' /usr/share/openclash/openclash_core.sh"
           docker exec openclash-smoke test -f \
             /usr/lib/lua/luci/view/openclash/oix_login.htm
+          docker exec openclash-smoke test -d \
+            /etc/openclash/config
+          docker exec openclash-smoke sh -c \
+            'touch /etc/openclash/config/.write-test && rm -f /etc/openclash/config/.write-test'
+          docker exec openclash-smoke grep -Fq \
+            '/usr/local/sbin/openclash-oix-sync' \
+            /usr/lib/lua/luci/controller/openclash.lua
+          docker exec openclash-smoke sh -c \
+            '! grep -Fq '\''curl -sL -m 10 --retry 2 --user-agent "clash"'\'' /usr/lib/lua/luci/controller/openclash.lua'
+          docker exec openclash-smoke grep -Fq \
+            "obj.stage === 'sync_error'" \
+            /usr/lib/lua/luci/view/openclash/oix_login.htm
+          docker exec openclash-smoke \
+            /usr/local/share/openclash-tests/test-oix-sync.sh
           docker exec openclash-smoke sh -c \
             '[ "$(uci -q get openclash.config.enable)" = 0 ]'
           docker exec openclash-smoke test -x \
@@ -176,6 +190,15 @@ jobs:
             "printf '\n# persistence-sentinel\n' >> /etc/config/openclash"
           docker exec openclash-smoke sh -c \
             "printf '\npersistence-sentinel\n' >> /etc/openclash/core/.packaged-oix-version"
+          docker exec openclash-smoke sh -c \
+            "printf '%s\n' \
+              'proxy-providers:' \
+              '  oixCloud: {type: http}' \
+              'proxy-groups:' \
+              '  - {name: Proxy, type: select, proxies: [DIRECT]}' \
+              > '/etc/openclash/config/oixCloud - smart.yaml'; \
+            uci -q set openclash.config.config_path='/etc/openclash/config/oixCloud - smart.yaml'; \
+            uci -q commit openclash"
           docker restart openclash-smoke
           wait_for_health
           docker exec openclash-smoke sh -c \
@@ -193,6 +216,10 @@ jobs:
           docker exec openclash-smoke grep -Fq \
             'persistence-sentinel' \
             /etc/openclash/core/.packaged-oix-version
+          docker exec openclash-smoke test -s \
+            '/etc/openclash/config/oixCloud - smart.yaml'
+          docker exec openclash-smoke sh -c \
+            '[ "$(uci -q get openclash.config.config_path)" = "/etc/openclash/config/oixCloud - smart.yaml" ]'
           if docker logs openclash-smoke 2>&1 | grep -Fq 'find: unrecognized'; then
             echo "Entrypoint used an unsupported BusyBox find option" >&2
             exit 1

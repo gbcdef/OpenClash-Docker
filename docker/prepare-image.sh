@@ -128,6 +128,15 @@ fi
 
 opkg install /tmp/openclash.ipk
 
+ruby /tmp/openclash-docker-patches/patch-openclash-oixcloud.rb \
+  /usr/lib/lua/luci/controller/openclash.lua \
+  /usr/lib/lua/luci/view/openclash/oix_login.htm
+lua -e 'assert(loadfile("/usr/lib/lua/luci/controller/openclash.lua"))'
+grep -Fq '/usr/local/sbin/openclash-oix-sync' \
+  /usr/lib/lua/luci/controller/openclash.lua
+grep -Fq "obj.stage === 'sync_error'" \
+  /usr/lib/lua/luci/view/openclash/oix_login.htm
+
 echo "[build] Resolving latest Oix core from ${OIX_CORE_RELEASE}"
 curl -fL --retry 3 --connect-timeout 20 \
   "${OIX_CORE_RELEASE_URL}/version.txt" \
@@ -234,6 +243,6 @@ rm -f \
   /tmp/oix-core-checksums.txt \
   /tmp/china-ipv4.txt \
   /tmp/china-ipv6.txt
-rm -rf /var/opkg-lists/* /tmp/vendor
+rm -rf /var/opkg-lists/* /tmp/vendor /tmp/openclash-docker-patches
 
 echo "[build] Image preparation complete"
