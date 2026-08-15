@@ -2,6 +2,8 @@
 
 这个目录提供一层默认启用、有序的本地配置，用于在 oixCloud 生成的配置上增加自定义内容。它使用 OpenClash 原生的 `openclash_custom_overwrite.sh` 入口，不修改下载的订阅文件。
 
+面向部署维护者的订阅 profile、地区组、统一 `Proxy`、规则和挂载操作见[平台配置能力说明](../docs/platform-configuration.md)。本文档主要说明 hook 实现契约与测试边界。
+
 ## 目录结构
 
 ```text

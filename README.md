@@ -227,6 +227,8 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 仓库提供了一个默认启用、按顺序执行的 [hooks 目录](hooks/README.md)，通过 OpenClash 原生的 `openclash_custom_overwrite.sh` 在每次配置生成后叠加本地能力，不修改下载的订阅文件：
 
+订阅 profile、地区自动组、统一 `Proxy`、自定义规则和宿主机 override 的维护方式见[平台配置能力说明](docs/platform-configuration.md)。
+
 ```text
 10-custom-hosts.sh         合并自定义 hosts
 15-custom-dns.sh           管理 DNS 路由与 fake-IP 过滤条目
