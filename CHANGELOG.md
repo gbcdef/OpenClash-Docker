@@ -21,6 +21,7 @@
 
 ### 修复
 
+- 内置规则将 `console.tailscale.com` 精确路由到统一 `Proxy` 入口，避免订阅中的 `tailscale.com,DIRECT` 规则导致管理控制台 TLS 连接被关闭。
 - 内联订阅缺少统一入口时生成 `Proxy` 兼容组并指向其原生主组，让自定义规则可在两套订阅中统一使用 `Proxy`，避免切换后核心启动失败。
 - host 网络模式下将 OpenWrt 逻辑 LAN 映射到实际的 `HOST_LAN_INTERFACE`，避免 dnsmasq、fw4 和 OpenClash 继续访问不存在的默认 `br-lan/eth0`。
 - DNS hook 启用按规则路由上游连接，并在订阅未提供 `proxy-server-nameserver` 时复用其 `default-nameserver`，修复境外 fallback DoH 被直连阻断后持续解析超时的问题。

@@ -64,6 +64,7 @@ proxy-groups:
     proxies:
       - DIRECT
 rules:
+  - DOMAIN-SUFFIX,tailscale.com,DIRECT
   - DOMAIN-SUFFIX,obsolete.example.test,DIRECT
   - GEOIP,CN,DIRECT
   - MATCH,Proxy
@@ -157,6 +158,11 @@ private_bypasses = [
   'IP-CIDR,172.16.0.0/12,DIRECT,no-resolve'
 ]
 raise 'RFC1918 bypasses are not first' unless rules.first(3) == private_bypasses
+console_rule = rules.index('DOMAIN,console.tailscale.com,Proxy')
+tailscale_direct = rules.index('DOMAIN-SUFFIX,tailscale.com,DIRECT')
+unless console_rule && tailscale_direct && console_rule < tailscale_direct
+  raise 'Tailscale console Proxy rule does not precede the subscription DIRECT rule'
+end
 unless rules.include?('DOMAIN,proxy-required.example.test,Proxy')
   raise 'available Oix rule target was unexpectedly remapped'
 end
@@ -209,6 +215,7 @@ proxy-groups:
       - 守候网络
       - DIRECT
 rules:
+  - DOMAIN-SUFFIX,tailscale.com,DIRECT
   - DOMAIN-SUFFIX,inline.example.test,Microsoft
   - MATCH,漏网之鱼
 YAML
@@ -270,6 +277,11 @@ unless microsoft['proxies'].first == '守候网络'
 end
 
 rules = value.fetch('rules')
+console_rule = rules.index('DOMAIN,console.tailscale.com,Proxy')
+tailscale_direct = rules.index('DOMAIN-SUFFIX,tailscale.com,DIRECT')
+unless console_rule && tailscale_direct && console_rule < tailscale_direct
+  raise 'inline Tailscale console Proxy rule does not precede the subscription DIRECT rule'
+end
 unless rules.include?('DOMAIN,proxy-required.example.test,Proxy')
   raise 'custom Proxy rule was not inherited by the inline compatibility group'
 end
