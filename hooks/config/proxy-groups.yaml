@@ -78,6 +78,8 @@ profiles:
       - ukraine
       - vietnam
     prepend-to: 守候网络
+    aliases:
+      Proxy: 守候网络
 
 regions:
   hong-kong:

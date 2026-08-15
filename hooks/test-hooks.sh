@@ -5,6 +5,8 @@ SOURCE_ROOT="$(CDPATH= cd "$(dirname "$0")" && pwd)"
 TEST_ROOT="/tmp/openclash-hooks-test.$$"
 CONFIG_FILE="${TEST_ROOT}/generated.yaml"
 INLINE_CONFIG_FILE="${TEST_ROOT}/inline-generated.yaml"
+NATIVE_ALIAS_CONFIG_FILE="${TEST_ROOT}/native-alias-generated.yaml"
+CYCLIC_ALIAS_CONFIG_FILE="${TEST_ROOT}/cyclic-alias-generated.yaml"
 LEGACY_CONFIG_FILE="${TEST_ROOT}/legacy-generated.yaml"
 UNMATCHED_CONFIG_FILE="${TEST_ROOT}/unmatched-generated.yaml"
 
@@ -258,21 +260,58 @@ main_group = groups.find { |group| group['name'] == '守候网络' }
 unless main_group['proxies'].first == '地区自动选择'
   raise 'inline regional selector was not exposed in the subscription main group'
 end
+proxy_alias = groups.find { |group| group['name'] == 'Proxy' }
+unless proxy_alias == {'name' => 'Proxy', 'type' => 'select', 'proxies' => ['守候网络']}
+  raise 'inline Proxy compatibility group does not point to the subscription main group'
+end
 microsoft = groups.find { |group| group['name'] == 'Microsoft' }
 unless microsoft['proxies'].first == '守候网络'
   raise 'provider-specific prepend rules leaked into the inline profile'
 end
 
 rules = value.fetch('rules')
-unless rules.include?('DOMAIN,proxy-required.example.test,守候网络')
-  raise 'missing Oix rule target was not mapped to the inline main group'
-end
-if rules.include?('DOMAIN,proxy-required.example.test,Proxy')
-  raise 'unavailable Oix rule target leaked into the inline configuration'
+unless rules.include?('DOMAIN,proxy-required.example.test,Proxy')
+  raise 'custom Proxy rule was not inherited by the inline compatibility group'
 end
 raise 'inline subscription rule was lost' unless rules.include?('DOMAIN-SUFFIX,inline.example.test,Microsoft')
 raise 'inline subscription final rule was lost' unless rules.last == 'MATCH,漏网之鱼'
 RUBY
+
+# A subscription-native Proxy group wins over the compatibility alias.
+cat > "${NATIVE_ALIAS_CONFIG_FILE}" <<'YAML'
+proxies:
+  - {name: "🇭🇰 香港 01", type: direct}
+proxy-groups:
+  - {name: 守候网络, type: select, proxies: ["🇭🇰 香港 01"]}
+  - {name: Proxy, type: select, proxies: [DIRECT]}
+rules:
+  - MATCH,Proxy
+YAML
+OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${TEST_ROOT}/hooks.d/20-custom-proxy-groups.sh" "${NATIVE_ALIAS_CONFIG_FILE}"
+ruby -ryaml -E UTF-8 - "${NATIVE_ALIAS_CONFIG_FILE}" <<'RUBY'
+value = YAML.load_file(ARGV.fetch(0))
+proxy = value.fetch('proxy-groups').find { |group| group['name'] == 'Proxy' }
+raise 'subscription-native Proxy group was overwritten' unless proxy['proxies'] == ['DIRECT']
+RUBY
+
+# Refuse to generate Proxy -> 守候网络 when 守候网络 already points to Proxy.
+cat > "${CYCLIC_ALIAS_CONFIG_FILE}" <<'YAML'
+proxies:
+  - {name: "🇭🇰 香港 01", type: direct}
+proxy-groups:
+  - {name: 守候网络, type: select, proxies: [Proxy, "🇭🇰 香港 01"]}
+rules:
+  - MATCH,守候网络
+YAML
+CYCLIC_ALIAS_BEFORE_SHA256="$(sha256sum "${CYCLIC_ALIAS_CONFIG_FILE}" | awk '{print $1}')"
+if OPENCLASH_HOOK_CONFIG_DIR="${TEST_ROOT}/config" \
+  /bin/sh "${TEST_ROOT}/hooks.d/20-custom-proxy-groups.sh" "${CYCLIC_ALIAS_CONFIG_FILE}"; then
+  echo "cyclic compatibility alias unexpectedly succeeded" >&2
+  exit 1
+fi
+CYCLIC_ALIAS_AFTER_SHA256="$(sha256sum "${CYCLIC_ALIAS_CONFIG_FILE}" | awk '{print $1}')"
+[ "${CYCLIC_ALIAS_BEFORE_SHA256}" = "${CYCLIC_ALIAS_AFTER_SHA256}" ]
 
 # Existing private version 1 definitions remain valid across an image upgrade.
 cp "${TEST_ROOT}/config/proxy-groups.yaml" "${TEST_ROOT}/config/proxy-groups-v2.yaml"

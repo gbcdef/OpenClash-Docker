@@ -2,10 +2,6 @@
 # rule can capture them.
 version: 1
 position: top
-# If a private rule uses the Oix main group, reuse the inline subscription's
-# main group when Oix is not the active source.
-target-fallbacks:
-  Proxy: [守候网络]
 rules:
   - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
   - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve

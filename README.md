@@ -232,7 +232,7 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 15-custom-dns.sh           管理 DNS 路由与 fake-IP 过滤条目
 18-custom-runtime.sh       管理 sniffer 与 TUN DNS 劫持
 20-custom-proxy-groups.sh  按节点来源创建地区组并挂入订阅主选择器
-30-custom-rules.sh         插入自定义规则并按订阅映射缺失的策略目标
+30-custom-rules.sh         在 MATCH/FINAL 前插入自定义规则
 custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 ```
 

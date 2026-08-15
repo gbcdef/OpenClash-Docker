@@ -228,6 +228,40 @@ def apply_version_2(value, definition)
   end.compact
   raise "profile produced no regional groups: #{profile['name']}" if generated_regions.empty?
 
+  aliases = profile.fetch('aliases', {})
+  raise 'profile aliases must be a map' unless aliases.is_a?(Hash)
+  generated_aliases = aliases.each_with_object([]) do |(alias_name, target_name), result|
+    alias_name = alias_name.to_s
+    target_name = target_name.to_s
+    raise 'profile alias name cannot be empty' if alias_name.empty?
+    raise "profile alias target cannot be empty: #{alias_name}" if target_name.empty?
+    if region_names.include?(alias_name) || alias_name == selector_name
+      raise "profile alias conflicts with a managed group: #{alias_name}"
+    end
+
+    target = groups.find do |group|
+      group.is_a?(Hash) && group['name'] == target_name
+    end
+    raise "profile alias target group is missing: #{target_name}" unless target
+
+    expected = {
+      'name' => alias_name,
+      'type' => 'select',
+      'proxies' => [target_name]
+    }
+    existing = groups.find do |group|
+      group.is_a?(Hash) && group['name'] == alias_name
+    end
+    # Keep a subscription-native group with the same name. An exact match is
+    # a generated alias from an earlier idempotent pass and can be rebuilt.
+    next if existing && existing != expected
+    if Array(target['proxies']).include?(alias_name)
+      raise "profile alias would create a group cycle: #{alias_name}"
+    end
+    groups.delete(existing) if existing
+    result << expected
+  end
+
   managed_names = region_names + [selector_name]
   groups.reject! do |group|
     group.is_a?(Hash) && managed_names.include?(group['name'])
@@ -237,7 +271,7 @@ def apply_version_2(value, definition)
     'type' => 'select',
     'proxies' => generated_regions.map { |group| group['name'] }
   }
-  value['proxy-groups'] = [selector_group] + generated_regions + groups
+  value['proxy-groups'] = [selector_group] + generated_regions + generated_aliases + groups
 
   attach_to = profile['prepend-to'].to_s
   raise 'matched proxy group profile must define prepend-to' if attach_to.empty?
