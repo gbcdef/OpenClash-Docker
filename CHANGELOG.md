@@ -21,6 +21,7 @@
 
 ### 修复
 
+- 自定义规则支持按当前订阅映射缺失的策略目标，避免切换到没有 `Proxy` 组的内联订阅后核心启动失败。
 - host 网络模式下将 OpenWrt 逻辑 LAN 映射到实际的 `HOST_LAN_INTERFACE`，避免 dnsmasq、fw4 和 OpenClash 继续访问不存在的默认 `br-lan/eth0`。
 - DNS hook 启用按规则路由上游连接，并在订阅未提供 `proxy-server-nameserver` 时复用其 `default-nameserver`，修复境外 fallback DoH 被直连阻断后持续解析超时的问题。
 - 新增默认关闭的 Docker 网桥到 LuCI 最小权限放行规则，严格匹配声明的源 CIDR、`LUCI_BIND` 和 `LUCI_PORT/tcp`，并在 fw4 reload 和 OpenClash 防火墙重建后幂等恢复。

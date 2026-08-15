@@ -25,6 +25,14 @@ cp "${SOURCE_ROOT}/config/proxy-groups.yaml" "${TEST_ROOT}/config/proxy-groups.y
 cp "${SOURCE_ROOT}/config/rules.yaml" "${TEST_ROOT}/config/rules.yaml"
 cp "${SOURCE_ROOT}/config/firewall-bypass.yaml" "${TEST_ROOT}/config/firewall-bypass.yaml"
 
+# Exercise a private proxy rule against both source-specific main groups.
+ruby -ryaml -E UTF-8 - "${TEST_ROOT}/config/rules.yaml" <<'RUBY'
+path = ARGV.fetch(0)
+value = YAML.load_file(path)
+value.fetch('rules') << 'DOMAIN,proxy-required.example.test,Proxy'
+File.open(path, 'w') { |file| YAML.dump(value, file) }
+RUBY
+
 cat > "${CONFIG_FILE}" <<'YAML'
 hosts:
   existing.example.test: 192.0.2.30
@@ -147,6 +155,9 @@ private_bypasses = [
   'IP-CIDR,172.16.0.0/12,DIRECT,no-resolve'
 ]
 raise 'RFC1918 bypasses are not first' unless rules.first(3) == private_bypasses
+unless rules.include?('DOMAIN,proxy-required.example.test,Proxy')
+  raise 'available Oix rule target was unexpectedly remapped'
+end
 raise 'subscription final rule was lost' unless rules.last == 'MATCH,Proxy'
 RUBY
 
@@ -253,6 +264,12 @@ unless microsoft['proxies'].first == '守候网络'
 end
 
 rules = value.fetch('rules')
+unless rules.include?('DOMAIN,proxy-required.example.test,守候网络')
+  raise 'missing Oix rule target was not mapped to the inline main group'
+end
+if rules.include?('DOMAIN,proxy-required.example.test,Proxy')
+  raise 'unavailable Oix rule target leaked into the inline configuration'
+end
 raise 'inline subscription rule was lost' unless rules.include?('DOMAIN-SUFFIX,inline.example.test,Microsoft')
 raise 'inline subscription final rule was lost' unless rules.last == 'MATCH,漏网之鱼'
 RUBY

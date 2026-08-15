@@ -50,7 +50,7 @@ Docker 网桥到 LuCI 的放行规则不属于订阅配置 hooks。启用 `ENABL
 - `dns.yaml` 可让 DNS 上游连接遵循代理规则，并在缺少 `proxy-server-nameserver` 时继承生成配置的 `default-nameserver` 作为代理节点引导解析；还可在 `fake-ip-filter.prepend` 中加入条目，并通过 `fake-ip-filter.remove` 删除旧条目。
 - `runtime.yaml` 只允许管理四个 sniffer 布尔开关、缺失时使用的协议嗅探表和 `tun.dns-hijack`。其他 sniffer/TUN 设置会保留，未知字段会明确失败，避免它变成可覆盖任意 Clash 配置的入口。
 - `proxy-groups.yaml` 的 `version: 2` 使用 profile 匹配生成配置：provider 来源生成带 `use/filter` 的地区组，内联 `proxies` 来源按同一地区正则生成节点列表并跳过空地区。profile 还要求订阅自身的主选择组存在，避免修改无关配置。每个 profile 只把“地区自动选择”挂入自己的主组，不替换订阅原有规则或其他策略组。旧的 `version: 1` 静态 `groups/prepend-to` 格式继续兼容。
-- `rules.yaml` 包含 `rules` 数组、可选的 `remove` 数组和 `position`。`remove` 用于清理旧的精确规则；位置支持 `top` 和 `before-final`，后者会把新规则插在第一个 `MATCH` 或 `FINAL` 之前。
+- `rules.yaml` 包含 `rules` 数组、可选的 `remove`、`target-fallbacks` 和 `position`。`remove` 用于清理旧的精确规则；`target-fallbacks` 可在当前订阅缺少某个策略组时选择第一个存在的替代组，例如把 Oix 的 `Proxy` 映射到内联订阅的 `守候网络`；位置支持 `top` 和 `before-final`，后者会把新规则插在第一个 `MATCH` 或 `FINAL` 之前。
 - `firewall-bypass.yaml` 的 `ipv4-destinations` 和 `udp-destination-ports` 会在 OpenClash mangle 链首加入 `return`，让指定流量在进入 TUN 前直连。脚本严格校验 IPv4 和端口格式，不执行 YAML 中的命令文本。
 
 schema 错误、provider 不存在或目标组不存在时，hook 会明确失败，不会输出只修改了一部分的代理配置。
