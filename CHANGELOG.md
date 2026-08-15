@@ -14,8 +14,14 @@
 
 ## 未发布
 
+### 新增
+
+- 地区代理组 hook 新增来源感知 profile：保持 oixCloud provider 的 21 个地区组，同时支持为带独立规则的内联节点订阅生成非空地区组，并额外识别中国大陆、阿联酋、巴基斯坦、乌克兰和越南。
+- `dev` 分支推送自动构建 `latest-dev` 测试镜像；`main` 仍只发布 `latest`。
+
 ### 修复
 
+- 内联订阅缺少统一入口时生成 `Proxy` 兼容组并指向其原生主组，让自定义规则可在两套订阅中统一使用 `Proxy`，避免切换后核心启动失败。
 - host 网络模式下将 OpenWrt 逻辑 LAN 映射到实际的 `HOST_LAN_INTERFACE`，避免 dnsmasq、fw4 和 OpenClash 继续访问不存在的默认 `br-lan/eth0`。
 - DNS hook 启用按规则路由上游连接，并在订阅未提供 `proxy-server-nameserver` 时复用其 `default-nameserver`，修复境外 fallback DoH 被直连阻断后持续解析超时的问题。
 - 新增默认关闭的 Docker 网桥到 LuCI 最小权限放行规则，严格匹配声明的源 CIDR、`LUCI_BIND` 和 `LUCI_PORT/tcp`，并在 fw4 reload 和 OpenClash 防火墙重建后幂等恢复。

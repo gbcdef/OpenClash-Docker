@@ -152,7 +152,7 @@ docker compose up -d
 docker image prune -f
 ```
 
-镜像工作流仅在推送到 `main` 或推送 `v*` 标签时运行。`main` 发布 `latest` 和不可变的 `sha-<提交>` 标签；`v*` 标签发布同名版本镜像和对应的 `sha-<提交>` 标签。
+镜像工作流在推送到 `main`、`dev` 或推送 `v*` 标签时运行。`main` 发布 `latest`，`dev` 发布测试用 `latest-dev`，`v*` 标签发布同名版本镜像；每次构建同时发布不可变的 `sha-<提交>` 标签。
 
 删除容器但保留 `DATA_DIR` 中的 OpenClash 配置与订阅：
 
@@ -221,17 +221,19 @@ CI 会真正启动刚构建的镜像，等待基础容器健康，并确认：
 
 账号、订阅 URL 和节点配置只应在 LuCI 中填写。它们保存在 `${DATA_DIR}/openclash` 目录中，不应写入 `.env` 或 Compose 文件。
 
-镜像构建时会从 `mihomo-oix` 的 `Pre-Alpha` 发布读取 `version.txt`，下载对应的 `linux-amd64` 资产，并使用同一发布的 `checksums.txt` 校验。构建还会刷新 GeoIP、GeoSite、Country/ASN MMDB 和适配 nftables 的 China route 列表。GitHub Actions 仅在推送到 `main` 或推送 `v*` 标签时构建；容器启动时会在持久化目录缺少这些资产时从镜像本地补齐，不要求运行主机再访问 GitHub。这不会在缺少 token、订阅和有效配置时强制启动 OpenClash。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
+镜像构建时会从 `mihomo-oix` 的 `Pre-Alpha` 发布读取 `version.txt`，下载对应的 `linux-amd64` 资产，并使用同一发布的 `checksums.txt` 校验。构建还会刷新 GeoIP、GeoSite、Country/ASN MMDB 和适配 nftables 的 China route 列表。GitHub Actions 在推送到 `main`、`dev` 或推送 `v*` 标签时构建；容器启动时会在持久化目录缺少这些资产时从镜像本地补齐，不要求运行主机再访问 GitHub。这不会在缺少 token、订阅和有效配置时强制启动 OpenClash。持久化配置中的 `openclash.config.enable=1` 会在以后重启时继续生效。
 
-### 在 oixCloud 订阅上叠加本地配置
+### 在订阅上叠加本地配置
 
-仓库提供了一个默认启用、按顺序执行的 [hooks 目录](hooks/README.md)，通过 OpenClash 原生的 `openclash_custom_overwrite.sh` 在每次配置生成后叠加本地能力，不修改下载的 oixCloud 订阅文件：
+仓库提供了一个默认启用、按顺序执行的 [hooks 目录](hooks/README.md)，通过 OpenClash 原生的 `openclash_custom_overwrite.sh` 在每次配置生成后叠加本地能力，不修改下载的订阅文件：
+
+订阅 profile、地区自动组、统一 `Proxy`、自定义规则和宿主机 override 的维护方式见[平台配置能力说明](docs/platform-configuration.md)。
 
 ```text
 10-custom-hosts.sh         合并自定义 hosts
 15-custom-dns.sh           管理 DNS 路由与 fake-IP 过滤条目
 18-custom-runtime.sh       管理 sniffer 与 TUN DNS 劫持
-20-custom-proxy-groups.sh  创建节点组并挂入已有 Proxy 选择器
+20-custom-proxy-groups.sh  按节点来源创建地区组并挂入订阅主选择器
 30-custom-rules.sh         在 MATCH/FINAL 前插入自定义规则
 custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 ```
@@ -242,7 +244,7 @@ custom firewall hook       让指定目标或 UDP 端口在进入 TUN 前直连
 docker compose up -d
 ```
 
-默认 YAML 已包含 21 个地区自动组、透明嗅探、TUN DNS 劫持、DNS 上游按规则路由、Tailscale MagicDNS fake-IP 例外、Vodafone ePDG hosts 和 RFC1918 直连规则。不需要某项时可以注释或删除相应条目；整体关闭时在 `.env` 设置 `ENABLE_OPENCLASH_HOOKS=0`。默认配置受 Git 跟踪且会构建进镜像，不应加入用户名、订阅 URL 或令牌。
+默认 YAML 为 oixCloud provider 创建原有 21 个地区组；对带 `守候网络` 主组的内联订阅，根据实际节点创建地区组、跳过空地区，并额外识别中国大陆、阿联酋、巴基斯坦、乌克兰和越南。两套订阅保留各自规则和其他策略组。默认配置还包含透明嗅探、TUN DNS 劫持、DNS 上游按规则路由、Tailscale MagicDNS fake-IP 例外、Vodafone ePDG hosts 和 RFC1918 直连规则。不需要某项时可以注释或删除相应条目；整体关闭时在 `.env` 设置 `ENABLE_OPENCLASH_HOOKS=0`。默认配置受 Git 跟踪且会构建进镜像，不应加入用户名、订阅 URL 或令牌。
 
 若希望使用已发布镜像并在宿主机直接修改这些 YAML，可将 `docker-compose.override.example.yml` 复制为 `docker-compose.override.yml`，把本地 `hooks/config` 覆盖挂载进容器；否则直接使用镜像内置版本。
 
